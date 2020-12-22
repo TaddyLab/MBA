@@ -1,6 +1,6 @@
 
 # Import the data file on cars for sale into R
-Cars <- read.csv("Cars.csv", stringsAsFactors = TRUE)
+Cars <- read.csv("SoCalCars.csv", stringsAsFactors = TRUE)
 
 # We'll now take a sample we feel is representative of used cars we want to test
 # This sample includes used cars  with prices at or below $100,000, and mileage greater than or equal to 10,000 miles
@@ -128,8 +128,15 @@ plot(sort(nullpval))
 
 ### prediction
 
-Cars[c(1,101,1001),c("make","model","year","mileage")]
-predict(carsreg, Cars[c(1,101,1001),], se.fit=TRUE)
+Cars[c(1001),c("make","model","year","mileage")]
+predict(carsreg, Cars[c(1001),], se.fit=TRUE)
+9.67232 + c(-2,2)*0.04083165
+exp(9.67232 + c(-2,2)*0.04083165)
+dodge <- predict(carsreg, Cars[c(1001),], se.fit=TRUE)
+predvar <- dodge$se.fit^2 + dodge$residual.scale^2
+sqrt(predvar)
+9.67232 + c(-2,2)*sqrt(predvar)
+exp(9.67232 + c(-2,2)*sqrt(predvar))
 
 ### bootstrapping
 # Set number of samples to be taken

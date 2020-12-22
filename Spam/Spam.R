@@ -22,3 +22,4 @@ boxplot(fitted(spammyFit)~spammy$spam,
 	xlab="", ylab=c("fitted probability of spam"), 
 	col=c("navy","red"))
 
+predict(spammyFit,newdata=spammy[c(1,4000),],type="response") #probabilities
