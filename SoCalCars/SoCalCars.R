@@ -139,181 +139,62 @@ sqrt(predvar)
 exp(9.67232 + c(-2,2)*sqrt(predvar))
 
 ### bootstrapping
-# Set number of samples to be taken
+
+## basic bootstrap for average price
 B <- 1000
-
-# Create an empty vector to store the calculated means of the samples
-mub <- c()
-
-# Construct a for-loop to calculate the mean of samples of the Cars dataset
-for (b in 1:B){
-        # Sample indices with replacement from 1 to the number of observations in Cars
-        samp_b <- sample.int(nrow(Cars), replace=TRUE)
-        # Take the mean of values selected in Listing.Price that match the indices sampled above
-        b_mean <- mean(Cars$price[samp_b]) 
-        # Add b_mean to the vector that stores the sample mean values 
-        mub[b] <- b_mean 
+muhats <- c() # empty set of estimates 
+for(b in 1:B){ # we'll draw B estimates
+    # resample with-replacement and estimate mu.hat
+    samp_b <- sample.int(nrow(Cars), replace=TRUE)
+    muhat_b <- mean(Cars$price[samp_b])
+    muhats <- c(muhats, muhat_b) # append to the set
 }
+sd(muhats)
 
-# Calculate the mean and standard deviation of the sample of means collected above
-mean(mub, na.rm=TRUE)
-sd(mub, na.rm=TRUE)
-sort(samp_b)[1:10]
-
-# View a histogram of the sample means created through bootstrap
-hist(mub, 
-     main="", 
-     xlab="mean price",
-     col=8, 
-     border="grey90", 
-     freq=FALSE,
-     xlim=c(xbar-4*xbse,xbar+4*xbse),
-     ylim=c(0, max(samp_pdf_values))
+pdf("SoCalCarsBootPrice.pdf", width=4, height=4)
+hist(muhats, main="", xlab="average used car price", freq=FALSE,
+     col=8, border="grey90", breaks=20,
+     xlim=c(xbar-4*xbse,xbar+4*xbse), 
+     ylim=c(0, max(samp_pdf_values)) )
+lines(calc_values, 
+     samp_pdf_values, 
+     type="l", 
+     col="blue"
 )
-
-# Overlay the theoretical sampling distribution under CLT on the histogram
-lines(calc_values, samp_pdf_values, col="royalblue", lwd=1.5)
-dev.copy(png,'bootstrapprice.png') # figure 3.3
 dev.off()
+
+## bootstrap hypothesis testing
+summary( glm(price ~ certified, data=Cars) )
+
+MileageStats <- summary(carsreg)$coef["log(mileage)",]
+Mileage <- function(data, obs){
+    fit <- glm(log(price) ~ log(mileage) + make + 
+                   year + certified + body + city, data=data[obs,])
+    return(fit$coef["log(mileage)"])
+}
+Mileage(Cars, 1:nrow(Cars))
+
+library(boot)
+MileageBoot <- boot(Cars, Mileage, 1000)
+hist(MileageBoot$t, freq=FALSE)
+
+mle <- MileageStats["Estimate"]
+mlese <- MileageStats["Std. Error"]
+calc_values <- seq(mle-4*mlese,mle+4*mlese,length=100)
+samp_pdf_values <- dnorm(calc_values, mle, mlese)
+lines(calc_values, samp_pdf_values)
+
+library(parallel)
+detectCores()
+system.time( MileageBoot <- boot(Cars, Mileage, 1000) )
+system.time( MileageBoot <- boot(Cars, Mileage, 1000, parallel="multicore", ncpus=8) )
+system.time( MileageBoot <- boot(Cars, Mileage, 1000, parallel="snow", ncpus=8) )
+
+
+
 
 #############################
 
-
-# Set the working directory to the specific location of the files on your computer
-# note: In this case, the working directory was set for my computer
-setwd("/Users/mch/Desktop/Uncertainty/code")
-
-# Import the data file on cars for sale into R
-Cars.Listings <- read.csv("./datasets/CA_cars.csv", header=TRUE)
-
-# We'll now take a sample we feel is representative of used cars we want to test
-# This sample includes used cars  with prices at or below $100,000, and mileage greater than or equal to 10,000 miles
-# but less than 150,000 miles.
-Cars.Listings <- subset(Cars.Listings,
-                                Cars.Listings$type != "New" &
-                                Cars.Listings$mileage >= 10000 &
-                                Cars.Listings$mileage <= 150000 &
-                                Cars.Listings$price <= 100000 )
-
-summary(Cars.Listings)
-
-# False discovery rates
-# Run a simple linear regression using interactions
-linereg <- glm(log(price) ~ log(mileage) + year + certified  + rating + body + year*body , data=Cars.Listings)
-summary(linereg)
-
-# Extract p-values for each regressor from the regression ouput
-pvals <- summary(linereg)$coef[-1,"Pr(>|t|)"]
-
-## Sort the p-values from smallest to greatest
-sorted_p <- sort(pvals)
-
-# Function to get significance cut-off alpha from FDR q
-fdr_cut <- function(pvals, q){
-        pvals <- pvals[!is.na(pvals)]
-        N <- length(pvals)
-        k <- rank(pvals, ties.method="min")
-        alpha <- max(pvals[ pvals<= (q*k/N) ])
-        return(alpha)
-}
-
-# @ 1/10% FDR
-cutoff10 <- fdr_cut(pvals,q=.1)
-print(cutoff10)
-print(sum(pvals<=cutoff10))
-sig <- factor(pvals<=cutoff10)
-o <- order(pvals)
-N <- length(pvals)
-
-# The below generates figure 3.7
-# Plot p-values 
-plot(sorted_p,
-     col=c("grey60","red")[sig[o]], # Colors the significant p-values red
-     pch=20,
-     bty="n", 
-     xlab="rank", 
-     ylab="p-values"
-)
-
-## Add the line of significance
-# Define q
-q <- 0.1
-# Add line to plot
-abline(a=0, b=q/N)
-dev.copy(png,'FDRusedcars.png') # Figure 3.7
-dev.off()
-
-#################################################################
-# Now for a larger example
-# data.table is useful for dealing with large datasets
-# You can install with install.packages("data.table")
-library(data.table)
-
-# Unpack the zipped dataset listed below in the datasets folder
-# fread is faster than read.table
-system.time(lipids <-  fread("./datasets/jointGwasMc_LDL.txt"))
-
-# We'll then convert back to the usual R 'data.frame'.
-# data.tables have other nice capabilities that we'll see later in class
-lipids <- as.data.frame(lipids)
-
-# Pull out p-values and label them
-pvals <- as.numeric(lipids[,'P-value'])
-names(pvals) <- lipids[,'rsid']
-
-# Plot the p-value distribution; notice the tiny spike near zero
-hist(pvals, main='', xlab='p-values', col=8, border="grey90",freq=FALSE)
-dev.copy(png,'hist_lipids.png') # Figure 3.8
-dev.off()
-
-
-# Now to plot figure 3.9
-# Top 10 locations to investigate
-names(pvals)[order(pvals)[1:10]] 
-
-# Function to get significance cut-off alpha from FDR q
-fdr_cut <- function(pvals, q){
-        pvals <- pvals[!is.na(pvals)]
-        N <- length(pvals)
-        k <- rank(pvals, ties.method="min")
-        alpha <- max(pvals[ pvals<= (q*k/N) ])
-        return(alpha)
-}
-
-# Find the cut
-# @ 10% FDR
-cutoff10 <- fdr_cut(pvals,q=.1)
-print(cutoff10)
-print(sum(pvals<=cutoff10))
-# @ 1% FDR
-cutoff1 <- fdr_cut(pvals,q=.01)
-print(cutoff1)
-print(sum(pvals<=cutoff1))
-# @ 1/10% FDR
-cutoff01 <- fdr_cut(pvals,q=.001)
-print(cutoff01)
-print(sum(pvals<=cutoff01))
-# So you get 4000 discoveries, only 4-5 of which you expect to be false
-
-# Visualize the B+H FDR algorithm 
-# warning: the plot can take a bit of time/memory
-sig <- factor(pvals<=cutoff01)
-o <- order(pvals)
-N <- length(pvals)
-plot(pvals[o], log="xy", col=c("grey60","red")[sig[o]], pch=20, 
-     ylab="p-values", xlab="tests ordered by p-value", main = 'FDR = 0.1%')
-lines(1:N, 0.01*(1:N)/N)
-dev.copy(png,'FDR_lipids.png') # Figure 3.9
-dev.off()
-
-
-## This code replicates the examples and figures in 3.5 Bayesian Inference
-# Clear the environment
-remove(list = ls())
-
-# Set the working directory to the specific location of the files on your computer
-# note: In this case, the working directory was set for my computer
-setwd("/Users/mch/Desktop/Uncertainty/code")
 
 # Import the data file on cars for sale into R
 Cars.Listings <- read.csv("./datasets/CA_cars.csv", header=TRUE)
