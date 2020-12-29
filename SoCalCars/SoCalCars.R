@@ -7,7 +7,7 @@ Cars <- read.csv("SoCalCars.csv", stringsAsFactors = TRUE)
 # but less than 150,000 miles.
 Cars <- subset(Cars,
         Cars$type != "New" & Cars$mileage >= 10000 & 
-        Cars$mileage <= 150000 & Cars$price <= 100000 )[,-1]
+        Cars$mileage <= 150000 & Cars$price < 100000 & Cars$year >= 1970)[,-1]
 # note that since the imported dataset has column names, it will be treated as a dataframe
 # View the dimensions of the Cars dataset with dim()
 dim(Cars) # output will be number of rows then number of columns
@@ -69,13 +69,15 @@ dev.off()
 # model for CPO price premium
 summary( glm(price ~ certified, data=Cars) )
 # 95% confidence interval for overall car average price
-19674.96 + 1.96*297.298*c(-1,1) 
+19674.96 + 1.96*297.3*c(-1,1) 
 # ~95% confidence interval for CPO premium 
-14330.5 + c(-2,2)*1363.6
+14331 + c(-2,2)*1363.6
 
 # larger car regression model.  First we relevel the reference levels
 Cars$make <- relevel(Cars$make, "Ford")
 Cars$body <- relevel(Cars$body, "Sedan")
+Cars$city <- relevel(Cars$city, "Costa Mesa")
+
 
 carsreg <- glm(log(price) ~ log(mileage) + make + 
        year + certified + body + city, data=Cars)
@@ -84,7 +86,7 @@ summary(carsreg)
 # Extract p-values for each regressor from the regression ouput
 pvals <- summary(carsreg)$coef[-1,"Pr(>|t|)"]
 length(pvals)
-nullps <- runif(115)
+nullps <- runif(116)
 
 pdf('SoCalCarsPvals.pdf', width=10, height=5)
 par(mfrow=c(1,2))
@@ -106,12 +108,14 @@ print(cutoff10)
 print(sum(pvals<=cutoff10))
 
 # produce the order statistic plots and  the FDR control plot
+sig <- factor(pvals<=cutoff10)
 pdf('SoCalCarsFDR.pdf', width=8, height=4)
 par(mfrow=c(1,2))
-plot(sort(pvals), pch=21, cex=.5,
+plot(sort(pvals), pch=21, cex=.5, col="gray20",
     bty="n", xlab="rank", ylab="p-values")
-points(sort(nullps), pch=24, cex=.5)
-legend("topleft", legend=c("null","observed"), pch=c(24,21), bty="n")
+points(sort(nullps), pch=24, cex=.5, col="blue")
+legend("topleft", legend=c("null","observed"), pch=c(24,21), 
+       col=c("blue", "gray20"), bty="n")
 plot(sort(pvals),
      col=c("grey60","red")[sig[order(pvals)]], 
      # above colors the significant p-values red
@@ -128,15 +132,16 @@ plot(sort(nullpval))
 
 ### prediction
 
-Cars[c(1001),c("make","model","year","mileage")]
-predict(carsreg, Cars[c(1001),], se.fit=TRUE)
-9.67232 + c(-2,2)*0.04083165
-exp(9.67232 + c(-2,2)*0.04083165)
-dodge <- predict(carsreg, Cars[c(1001),], se.fit=TRUE)
-predvar <- dodge$se.fit^2 + dodge$residual.scale^2
+# conditional expectation CI
+Cars[c(1000),c("make","model","year","mileage")]
+(caravan <- predict(carsreg, Cars[c(1000),], se.fit=TRUE))
+caravan$fit + c(-2,2)*caravan$se.fit
+exp(caravan$fit + c(-2,2)*caravan$se.fit)
+# prediction interval
+predvar <- caravan$se.fit^2 + caravan$residual.scale^2
 sqrt(predvar)
-9.67232 + c(-2,2)*sqrt(predvar)
-exp(9.67232 + c(-2,2)*sqrt(predvar))
+caravan$fit + c(-2,2)*sqrt(predvar)
+exp(caravan$fit+ c(-2,2)*sqrt(predvar))
 
 ### bootstrapping
 
