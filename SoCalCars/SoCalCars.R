@@ -163,34 +163,88 @@ lines(calc_values,
 )
 dev.off()
 
-## bootstrap hypothesis testing
-summary( glm(price ~ certified, data=Cars) )
+### making decisions with the bootstrap
 
-MileageStats <- summary(carsreg)$coef["log(mileage)",]
-Mileage <- function(data, obs){
+
+### 
+MileStats <- summary(carsreg)$coef["log(mileage)",]
+CarsCoef <- function(data, obs, name){
     fit <- glm(log(price) ~ log(mileage) + make + 
                    year + certified + body + city, data=data[obs,])
-    return(fit$coef["log(mileage)"])
+    return(fit$coef[name])
 }
-Mileage(Cars, 1:nrow(Cars))
+CarsCoef(Cars, 1:nrow(Cars), name="log(mileage)")
+round(MileStats,3)
 
-library(boot)
-MileageBoot <- boot(Cars, Mileage, 1000)
-hist(MileageBoot$t, freq=FALSE)
-
-mle <- MileageStats["Estimate"]
-mlese <- MileageStats["Std. Error"]
-calc_values <- seq(mle-4*mlese,mle+4*mlese,length=100)
-samp_pdf_values <- dnorm(calc_values, mle, mlese)
-lines(calc_values, samp_pdf_values)
-
+#########
 library(parallel)
 detectCores()
-system.time( MileageBoot <- boot(Cars, Mileage, 1000) )
-system.time( MileageBoot <- boot(Cars, Mileage, 1000, parallel="multicore", ncpus=8) )
-system.time( MileageBoot <- boot(Cars, Mileage, 1000, parallel="snow", ncpus=8) )
+system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000) )
+system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000, 
+                  parallel="multicore", ncpus=8) )
+system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000, 
+                  parallel="snow", ncpus=8) )
+############
 
+## test statistics
+library(boot)
+MileBoot <- boot(Cars, CarsCoef, name="log(mileage)", 2000, parallel="snow", ncpus=8)
+MileBoot
+(bhat <- MileStats["Estimate"])
+mean(MileageBoot$t) - bhat
+bhat/sd(MileageBoot$t)
+2*pnorm(-abs(bhat/sd(MileageBoot$t)))
 
+## confidence interval
+MileErrors <- MileBoot$t - bhat
+quantile(bhat - MileErrors,c(.025,.975))
+quantile(MileBoot$t,c(.025,.975))
+
+## bias example: e^b
+ebhat <- exp(bhat)
+ebhatBoot <- exp(MileBoot$t)
+ebhatErrors <- ebhatBoot - ebhat
+mean(ebhatErrors)
+quantile(ebhat - ebhatErrors,c(.025,.975))
+quantile(ebhatBoot,c(.025,.975))
+
+hist(MileBoot$t, freq=FALSE, ylim=c(0,25), border="grey90",
+     main="", xlab="price-mileage elasticity")
+
+bhatse <- MileStats["Std. Error"]
+grid <- seq(bhat-6*bhatse,bhat+6*bhatse,length=100)
+lines(grid, dnorm(grid, bhat, bhatse), col=4, lwd=1.5)
+
+## HC standard errors 
+#boxplot(carsreg$residuals ~ Cars$dealer)
+library(sandwich)
+library(lmtest)
+hcstats <- coeftest(carsreg, vcov = vcovHC(carsreg, "HC0"))
+round(hcstats["log(mileage)",], 5)
+lines(grid, dnorm(grid, bhat, hcstats["log(mileage)","Std. Error"]), 
+      col=2, lwd=1.5)
+
+## clustered standard errors. 
+CarsByDealer <- split(Cars, Cars$dealer)
+CarsBlockCoef <- function(data, ids){
+    data <- do.call("rbind",data[ids])
+    fit <- glm(log(price) ~ log(mileage) + make + 
+                   year + certified + body + city, data=data)
+    return(fit$coef["log(mileage)"])
+}
+CarsBlockCoef(CarsByDealer, 1:length(CarsByDealer))
+MileBlockBoot <- boot(CarsByDealer, CarsBlockCoef, 2000, parallel="snow", ncpus=8)
+MileBlockBoot
+MileBoot
+
+clstats <- coeftest(carsreg, vcov = vcovCL(carsreg, cluster=Cars$dealer))
+round(clstats["log(mileage)",], 5)
+
+SampMean <- function(data, obs) mean(data[obs])
+PriceByDealer <- split(Cars$price, Cars$dealer)
+BlockSampMean <- function(data, ids) mean(unlist(data[ids]))
+boot(Cars$price, SampMean, 1000)
+boot(PriceByDealer, BlockSampMean, 1000)
 
 
 #############################

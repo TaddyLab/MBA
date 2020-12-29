@@ -1,5 +1,15 @@
 
 ## chapter 3, SoCalCars
+# recall our earlier test of whether there was a different expected price for
+# certified pre-owned vehicles.  We wrote a model that allowed for two different
+# price means as $\R{price} = \alpha + \R{certified}\beta + \varepsilon$. We
+# then used \R{glm} to fit the model and test for whether $\beta = 0$. To
+# re-evaluate this test with bootstrapping, you simply re-fit this model to many
+# with-replacement resamples of the \R{Cars} data.  
+
+CertReg <- glm(price ~ certified, data=Cars) 
+mle <- coef(CertReg)["certified"]
+mlese <- summary(CertReg)$coef["certified","Std. Error"]
 
 # repeat our analysis of the difference in means for CPO cars
 Certified <- function(data, obs){
@@ -8,8 +18,18 @@ Certified <- function(data, obs){
 }
 Certified(Cars, 1:nrow(Cars))
 library(boot)
-CertBoot <- boot(Cars, Certified, 1000)
+system.time( 
+  CertBoot <- boot(Cars, Certified, 10000, parallel="multicore", ncpus=8) 
+)
 hist(CertBoot$t)
+CertBoot 
+mean(CertBoot$t)
+
+CertErrors <- CertBoot$t - mle
+mle - quantile(CertErrors,c(.975,.025))
+quantile(CertBoot$t,c(.025,.975))
+
+
 
 #################################################################
 # Now for a larger example
