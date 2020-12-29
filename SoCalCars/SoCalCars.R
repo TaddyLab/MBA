@@ -246,6 +246,33 @@ BlockSampMean <- function(data, ids) mean(unlist(data[ids]))
 boot(Cars$price, SampMean, 1000)
 boot(PriceByDealer, BlockSampMean, 1000)
 
+### parametric bootstrap
+CarsRegFun <- function(data){
+    fit <- glm(log(price) ~ log(mileage) + make + 
+                   year + certified + body + city, data=data)
+    return(fit$coef["log(mileage)"])
+}
+CarsDataGen <- function(data, fit){
+    n <- nrow(data)
+    Ey <- predict(fit, data)
+    data$price <- exp( rnorm(n, Ey, summary(fit)$dispersion)  )
+    return(data)
+}
+CarsDataGenNCV <- function(data, mle){
+    Ey <- predict(mle, data)
+    data$price <- exp( rnorm(nrow(data), Ey, abs(mle$residuals) ) )
+    return(data)
+}
+
+boot(Cars, CarsRegFun, 1000, sim = "parametric", 
+     ran.gen = CarsDataGen, mle=carsreg,
+     parallel="snow", ncpus=8)
+
+boot(Cars, CarsRegFun, 1000, sim = "parametric", 
+     ran.gen = CarsDataGenNCV, mle=carsreg,
+     parallel="snow", ncpus=8)
+
+MileBoot
 
 #############################
 
