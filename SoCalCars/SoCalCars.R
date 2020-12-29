@@ -170,13 +170,19 @@ dev.off()
 
 ### making decisions with the bootstrap
 
+## 
+( z <- (mean(Cars$price) - 20000)/298 )
+2*pnorm(-abs(z))
 
-### 
-MileStats <- summary(carsreg)$coef["log(mileage)",]
-CarsCoef <- function(data, obs, name){
-    fit <- glm(log(price) ~ log(mileage) + make + 
-                   year + certified + body + city, data=data[obs,])
-    return(fit$coef[name])
+### mileage elasticity of price
+# glm analysis results
+betaStats <- summary(carsreg)$coef["log(mileage)",]
+round(betaStats, 3)
+
+# function 
+getBeta <- function(data, obs){
+    fit <- glm(formula(carsreg), data=data[obs,])
+    return(fit$coef["log(mileage)"])
 }
 CarsCoef(Cars, 1:nrow(Cars), name="log(mileage)")
 round(MileStats,3)
