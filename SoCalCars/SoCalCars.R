@@ -177,32 +177,37 @@ dev.off()
 ### mileage elasticity of price
 # glm analysis results
 betaStats <- summary(carsreg)$coef["log(mileage)",]
-round(betaStats, 3)
+round(betaStats, 5)
 
 # function 
 getBeta <- function(data, obs){
-    fit <- glm(formula(carsreg), data=data[obs,])
+    fit <- glm(log(price) ~ log(mileage) + make + year 
+               + certified + body + city, data=data[obs,])
     return(fit$coef["log(mileage)"])
 }
-CarsCoef(Cars, 1:nrow(Cars), name="log(mileage)")
-round(MileStats,3)
+getBeta(Cars, 1:nrow(Cars))
 
 #########
 library(parallel)
+library(boot)
 detectCores()
-system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000) )
-system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000, 
-                  parallel="multicore", ncpus=8) )
-system.time( boot(Cars, CarsCoef, name="log(mileage)", 1000, 
-                  parallel="snow", ncpus=8) )
+system.time( boot(Cars, getBeta, 2000) )
+system.time( boot(Cars, getBeta, 2000, parallel="multicore", ncpus=8) )
+system.time( boot(Cars, getBeta, 2000, parallel="snow", ncpus=8 ) )
 ############
 
 ## test statistics
+library(parallel)
 library(boot)
-MileBoot <- boot(Cars, CarsCoef, name="log(mileage)", 2000, parallel="snow", ncpus=8)
-MileBoot
-(bhat <- MileStats["Estimate"])
-mean(MileageBoot$t) - bhat
+( betaBoot <- boot(Cars, getBeta, 2000, 
+                 parallel="snow", ncpus=detectCores()) )
+
+
+(bhat <- betaStats["Estimate"])
+betaBoot$t0
+sd(betaBoot$t)
+mean(betaBoot$t) - bhat
+
 bhat/sd(MileageBoot$t)
 2*pnorm(-abs(bhat/sd(MileageBoot$t)))
 
