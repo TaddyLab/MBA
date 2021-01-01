@@ -208,28 +208,8 @@ betaBoot$t0
 sd(betaBoot$t)
 mean(betaBoot$t) - bhat
 
-bhat/sd(MileageBoot$t)
-2*pnorm(-abs(bhat/sd(MileageBoot$t)))
-
-## confidence interval
-MileErrors <- MileBoot$t - bhat
-quantile(bhat - MileErrors,c(.025,.975))
-quantile(MileBoot$t,c(.025,.975))
-
-## bias example: e^b
-ebhat <- exp(bhat)
-ebhatBoot <- exp(MileBoot$t)
-ebhatErrors <- ebhatBoot - ebhat
-mean(ebhatErrors)
-quantile(ebhat - ebhatErrors,c(.025,.975))
-quantile(ebhatBoot,c(.025,.975))
-
-hist(MileBoot$t, freq=FALSE, ylim=c(0,25), border="grey90",
-     main="", xlab="price-mileage elasticity")
-
-bhatse <- MileStats["Std. Error"]
-grid <- seq(bhat-6*bhatse,bhat+6*bhatse,length=100)
-lines(grid, dnorm(grid, bhat, bhatse), col=4, lwd=1.5)
+bhat/sd(betaBoot$t)
+2*pnorm(-abs(bhat/sd(betaBoot$t)))
 
 ## HC standard errors 
 #boxplot(carsreg$residuals ~ Cars$dealer)
@@ -237,21 +217,33 @@ library(sandwich)
 library(lmtest)
 hcstats <- coeftest(carsreg, vcov = vcovHC(carsreg, "HC0"))
 round(hcstats["log(mileage)",], 5)
+
+## plot them all
+pdf("SoCalCarsElasticity.pdf", width=4, height=4)
+hist(betaBoot$t, freq=FALSE, ylim=c(0,25), border="grey90",
+     main="", xlab="price-mileage elasticity")
+bhatse <- betaStats["Std. Error"]
+grid <- seq(bhat-6*bhatse,bhat+6*bhatse,length=100)
+lines(grid, dnorm(grid, bhat, bhatse), col="navy", lwd=1.5)
 lines(grid, dnorm(grid, bhat, hcstats["log(mileage)","Std. Error"]), 
-      col=2, lwd=1.5)
+      col="orange", lwd=1.5)
+legend("topright", legend=c("Basic","Bootstrap","HC"), 
+       col=c("grey","navy","orange"), pch=15, bty="n")
+dev.off()
 
 ## clustered standard errors. 
 CarsByDealer <- split(Cars, Cars$dealer)
-CarsBlockCoef <- function(data, ids){
+length(CarsByDealer)
+getBetaBlock <- function(data, ids){
     data <- do.call("rbind",data[ids])
     fit <- glm(log(price) ~ log(mileage) + make + 
                    year + certified + body + city, data=data)
     return(fit$coef["log(mileage)"])
 }
-CarsBlockCoef(CarsByDealer, 1:length(CarsByDealer))
-MileBlockBoot <- boot(CarsByDealer, CarsBlockCoef, 2000, parallel="snow", ncpus=8)
-MileBlockBoot
-MileBoot
+getBetaBlock(CarsByDealer, 1:length(CarsByDealer))
+
+( betaBootBlock <- boot(CarsByDealer, getBetaBlocked, 
+                          2000, parallel="snow", ncpus=8) )
 
 clstats <- coeftest(carsreg, vcov = vcovCL(carsreg, cluster=Cars$dealer))
 round(clstats["log(mileage)",], 5)
@@ -261,6 +253,20 @@ PriceByDealer <- split(Cars$price, Cars$dealer)
 BlockSampMean <- function(data, ids) mean(unlist(data[ids]))
 boot(Cars$price, SampMean, 1000)
 boot(PriceByDealer, BlockSampMean, 1000)
+
+### confidence interval
+betaErrors <- betaBoot$t - bhat
+quantile(bhat - betaErrors,c(.025,.975))
+quantile(betaBoot$t,c(.025,.975))
+
+## bias example: e^b
+ebhat <- exp(bhat)
+ebhatBoot <- exp(betaBoot$t)
+ebhatErrors <- ebhatBoot - ebhat
+mean(ebhatErrors)
+quantile(ebhat - ebhatErrors,c(.025,.975))
+quantile(ebhatBoot,c(.025,.975))
+
 
 ### parametric bootstrap
 CarsRegFun <- function(data){
