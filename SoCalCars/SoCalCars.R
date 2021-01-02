@@ -212,10 +212,10 @@ bhat/sd(betaBoot$t)
 2*pnorm(-abs(bhat/sd(betaBoot$t)))
 
 ## HC standard errors 
-#boxplot(carsreg$residuals ~ Cars$dealer)
 library(sandwich)
 library(lmtest)
-hcstats <- coeftest(carsreg, vcov = vcovHC(carsreg, "HC0"))
+VHC = vcovHC(carsreg, "HC0")
+hcstats <- coeftest(carsreg, vcov = VHC)
 round(hcstats["log(mileage)",], 5)
 
 ## plot them all
@@ -231,7 +231,7 @@ legend("topright", legend=c("Basic","Bootstrap","HC"),
        col=c("grey","navy","orange"), pch=15, bty="n")
 dev.off()
 
-## clustered standard errors. 
+### clustered standard errors. 
 CarsByDealer <- split(Cars, Cars$dealer)
 length(CarsByDealer)
 getBetaBlock <- function(data, ids){
@@ -242,24 +242,44 @@ getBetaBlock <- function(data, ids){
 }
 getBetaBlock(CarsByDealer, 1:length(CarsByDealer))
 
-( betaBootBlock <- boot(CarsByDealer, getBetaBlocked, 
-                          2000, parallel="snow", ncpus=8) )
+( betaBootB <- boot(CarsByDealer, getBetaBlock, 
+                          2000, parallel="snow", ncpus=detectCores()) )
 
-clstats <- coeftest(carsreg, vcov = vcovCL(carsreg, cluster=Cars$dealer))
+Vblock <- vcovCL(carsreg, cluster=Cars$dealer)
+clstats <- coeftest(carsreg, vcov = Vblock)
 round(clstats["log(mileage)",], 5)
+##############
 
-SampMean <- function(data, obs) mean(data[obs])
-PriceByDealer <- split(Cars$price, Cars$dealer)
-BlockSampMean <- function(data, ids) mean(unlist(data[ids]))
-boot(Cars$price, SampMean, 1000)
-boot(PriceByDealer, BlockSampMean, 1000)
+### confidence intervals
+# using standard errors
+bhat + c(-1,1)*1.96*sd(betaBootB$t)
 
-### confidence interval
-betaErrors <- betaBoot$t - bhat
+quantile(betaBootB$t,c(0.025, 0.975))
+
+betaErrors <- betaBootB$t - bhat
 quantile(bhat - betaErrors,c(.025,.975))
-quantile(betaBoot$t,c(.025,.975))
 
 ## bias example: e^b
+Cars[1000,]
+( pred <- predict(carsreg, Cars[c(1000),]) )
+( phat <- exp(pred) )
+
+getPrice <- function(data, ids, xpred){
+    data <- do.call("rbind",data[ids])
+    fit <- glm(log(price) ~ log(mileage) + make + 
+                   year + certified + body + city, data=data)
+    return(exp(predict(fit,xpred)))
+}
+getPrice(CarsByDealer, 1:length(CarsByDealer), Cars[1000,])
+( priceBoot <- boot(CarsByDealer, getPrice, xpred=Cars[1000,], 
+                          2000, parallel="snow", ncpus=detectCores()) )
+
+quantile(priceBoot$t, c(.025,.975))
+
+priceErrors <- priceBoot$t - phat
+mean(priceErrors)
+quantile(phat-priceErrors, c(.025,.975))
+
 ebhat <- exp(bhat)
 ebhatBoot <- exp(betaBoot$t)
 ebhatErrors <- ebhatBoot - ebhat
@@ -269,32 +289,40 @@ quantile(ebhatBoot,c(.025,.975))
 
 
 ### parametric bootstrap
-CarsRegFun <- function(data){
+
+CarsSim <- function(data, mle){
+    n <- nrow(data)
+    Ey <- predict(mle, data)
+    data$price <- exp( rnorm(n, Ey, summary(mle)$dispersion)  )
+    return(data)
+}
+simcars <- CarsSim(Cars, carsreg)
+simcars[1,]
+
+
+getBetaPar <- function(data){
     fit <- glm(log(price) ~ log(mileage) + make + 
                    year + certified + body + city, data=data)
     return(fit$coef["log(mileage)"])
 }
-CarsDataGen <- function(data, fit){
+( parboot <- boot(Cars, getBetaPar, 2000, 
+    sim = "parametric", ran.gen = CarsSim, mle=carsreg,
+    parallel="snow", ncpus=detectCores()) )
+
+# again, but with nonconstant variance
+CarsSimNCV <- function(data, mle){
     n <- nrow(data)
-    Ey <- predict(fit, data)
-    data$price <- exp( rnorm(n, Ey, summary(fit)$dispersion)  )
-    return(data)
-}
-CarsDataGenNCV <- function(data, mle){
     Ey <- predict(mle, data)
-    data$price <- exp( rnorm(nrow(data), Ey, abs(mle$residuals) ) )
+    # replace the dispersion with abs(residuals)
+    data$price <- exp( rnorm(n, Ey, abs(mle$residuals) ))
     return(data)
 }
+( parbootNCV <- boot(Cars, getBetaPar, 2000, 
+    sim = "parametric", ran.gen = CarsSimNCV, mle=carsreg,
+    parallel="snow", ncpus=detectCores()) )
 
-boot(Cars, CarsRegFun, 1000, sim = "parametric", 
-     ran.gen = CarsDataGen, mle=carsreg,
-     parallel="snow", ncpus=8)
 
-boot(Cars, CarsRegFun, 1000, sim = "parametric", 
-     ran.gen = CarsDataGenNCV, mle=carsreg,
-     parallel="snow", ncpus=8)
-
-MileBoot
+betaBoot
 
 #############################
 

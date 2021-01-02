@@ -1,37 +1,7 @@
 
 ## chapter 3, SoCalCars
-# recall our earlier test of whether there was a different expected price for
-# certified pre-owned vehicles.  We wrote a model that allowed for two different
-# price means as $\R{price} = \alpha + \R{certified}\beta + \varepsilon$. We
-# then used \R{glm} to fit the model and test for whether $\beta = 0$. To
-# re-evaluate this test with bootstrapping, you simply re-fit this model to many
-# with-replacement resamples of the \R{Cars} data.  
 
-CertReg <- glm(price ~ certified, data=Cars) 
-mle <- coef(CertReg)["certified"]
-mlese <- summary(CertReg)$coef["certified","Std. Error"]
-
-# repeat our analysis of the difference in means for CPO cars
-Certified <- function(data, obs){
-  fit <- glm(price ~ certified, data=data[obs,])
-  return(fit$coef["certified"])
-}
-Certified(Cars, 1:nrow(Cars))
-library(boot)
-system.time( 
-  CertBoot <- boot(Cars, Certified, 10000, parallel="multicore", ncpus=8) 
-)
-hist(CertBoot$t)
-CertBoot 
-mean(CertBoot$t)
-
-CertErrors <- CertBoot$t - mle
-mle - quantile(CertErrors,c(.975,.025))
-quantile(CertBoot$t,c(.025,.975))
-
-
-
-#################################################################
+### Larger FDR example
 # Now for a larger example
 # data.table is useful for dealing with large datasets
 # You can install with install.packages("data.table")
@@ -93,4 +63,39 @@ plot(pvals[o], log="xy", col=c("grey60","red")[sig[o]], pch=20,
 lines(1:N, 0.01*(1:N)/N)
 dev.copy(png,'FDR_lipids.png') # Figure 3.9
 dev.off()
+
+#### bootstrap analysis of the CPO effect
+# recall our earlier test of whether there was a different expected price for
+# certified pre-owned vehicles.  We wrote a model that allowed for two different
+# price means as $\R{price} = \alpha + \R{certified}\beta + \varepsilon$. We
+# then used \R{glm} to fit the model and test for whether $\beta = 0$. To
+# re-evaluate this test with bootstrapping, you simply re-fit this model to many
+# with-replacement resamples of the \R{Cars} data.  
+
+CertReg <- glm(price ~ certified, data=Cars) 
+mle <- coef(CertReg)["certified"]
+mlese <- summary(CertReg)$coef["certified","Std. Error"]
+
+# repeat our analysis of the difference in means for CPO cars
+Certified <- function(data, obs){
+  fit <- glm(price ~ certified, data=data[obs,])
+  return(fit$coef["certified"])
+}
+Certified(Cars, 1:nrow(Cars))
+library(boot)
+system.time( 
+  CertBoot <- boot(Cars, Certified, 10000, parallel="multicore", ncpus=8) 
+)
+hist(CertBoot$t)
+CertBoot 
+mean(CertBoot$t)
+
+CertErrors <- CertBoot$t - mle
+mle - quantile(CertErrors,c(.975,.025))
+quantile(CertBoot$t,c(.025,.975))
+
+
+### block bootstrap for the panel data example
+
+
 
