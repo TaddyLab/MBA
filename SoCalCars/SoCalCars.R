@@ -228,7 +228,7 @@ lines(grid, dnorm(grid, bhat, bhatse), col="navy", lwd=1.5)
 lines(grid, dnorm(grid, bhat, hcstats["log(mileage)","Std. Error"]), 
       col="orange", lwd=1.5)
 legend("topright", legend=c("Basic","Bootstrap","HC"), 
-       col=c("grey","navy","orange"), pch=15, bty="n")
+       col=c("navy","grey","orange"), pch=15, bty="n")
 dev.off()
 
 ### clustered standard errors. 
@@ -327,56 +327,26 @@ betaBoot
 #############################
 
 
-# Import the data file on cars for sale into R
-Cars.Listings <- read.csv("./datasets/CA_cars.csv", header=TRUE)
-
-# We'll now take a sample we feel is representative of used cars we want to test
-# This sample includes used cars  with prices at or below $100,000, and mileage greater than or equal to 10,000 miles
-# but less than 150,000 miles.
-Cars.Listings <- subset(Cars.Listings,
-                                Cars.Listings$type != "New" &
-                                Cars.Listings$mileage >= 10000 &
-                                Cars.Listings$mileage <= 150000 &
-                                Cars.Listings$price <= 100000 )
-
-summary(Cars.Listings)
-
-
-# This subsample examines Mercedes-Benz from our original dataset
-Cars.Listings.Make <- subset(Cars.Listings, make == "Mercedes-Benz")
-
-# This line removes unwanted factor levels
-#Cars.Listings.Volkswagen$Model <- factor(Cars.Listings.Volkswagen$Model)
-
 ## Bayesian estimation of generalized linear models
 # You can install with install.packages("arm")
 library(arm)
 
 # Bayesian GLM
-bayes.linereg.make <- bayesglm(log(price) ~ log(mileage) + year + certified + rating + body, data=Cars.Listings.Make)
-summary(bayes.linereg.make)
-
-# Compare 95 percent confidence interval for the GLM example
-# Standard linear model
-carsubtest <- glm(log(price) ~ log(mileage) + year + certified + rating + body, data=Cars.Listings.Make)
-summary(carsubtest)
-confint(carsubtest)
+carsregBayes <- bayesglm(log(price) ~ log(mileage) + make + 
+                           year + certified + body + city, data=Cars)
+summary(carsregBayes)$coef["log(mileage"]
 
 # Simulate posterior distribution for our Bayesian example
-post.sims <- coef(sim(bayes.linereg.make))
-posterior.Mileage <- post.sims[,2]
-posterior.year <- post.sims[,3]
+posterior <- coef(sim(carsregBayes))
 
-# Display the 95 percent confidence interveral for the Mileage example
-quantile(posterior.Mileage, c(0.025, 0.975))
+bhatse <- betaStats["Std. Error"]
+grid <- seq(bhat-6*bhatse,bhat+6*bhatse,length=100)
 
-# Display a histogram of the posterior distribution for Mileage
-hist(posterior.Mileage,
-     freq=FALSE, 
-     main="", 
-     col=8,
-     border="grey90",
-     xlab="posterior.Mileage")
-lines(density(posterior.Mileage), col="royalblue", lwd=1.5)
-dev.copy(png,'posteriormileage.png') # Figure 3.11
-dev.off() 
+pdf("SoCalCarsBayes.pdf", width=4, height=4)
+plot(grid, dnorm(grid, bhat, bhatse), xlim=range(grid), ylim=c(0,30), type="l",
+    xlab="price-mileage elasticty", ylab="density", main="", bty="n", lwd=1.5, col="navy")
+lines(density(betaBoot$t), col="grey50",  lwd=1.5)
+lines(density(posterior[,"log(mileage)"]), col=2,  lwd=1.5)
+legend("topright", legend=c("Basic","Bootstrap","Bayesian"), 
+       col=c("navy","grey50","red"), pch=15, bty="n")
+dev.off()

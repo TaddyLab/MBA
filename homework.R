@@ -98,4 +98,3 @@ quantile(CertBoot$t,c(.025,.975))
 ### block bootstrap for the panel data example
 
 
-
