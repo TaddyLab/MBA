@@ -6,9 +6,12 @@ head(oj)
 
 # create some colors for the brands then plot
 brandcol <- c("green","red","gold")
-par(mfrow=c(1,2))
-plot(log(price) ~ brand, data=oj, col=brandcol)
+pdf('ojBoxplots.pdf', width=5, height=5)
+boxplot(log(price) ~ brand, data=oj, col=brandcol, horizontal=TRUE)
+dev.off()
+pdf('ojScatterplot.pdf', width=5, height=5)
 plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand])
+dev.off()
 
 # simple log-log plus brand regression
 fit<-glm(log(sales) ~ brand + log(price),data=oj)  
@@ -57,8 +60,9 @@ coef(fit3way)
 # create some data for prediction, using the data.frame function
 # note the care in specifying brand factor (levels must match original data)
 # we don't need all variables in oj; just those used as covariates in reg.
-newdata=data.frame(price=rep(4,3), 
-	brand=factor(c("tropicana","minute.maid","dominicks"),levels=levels(oj$brand)),
+newdata=data.frame(price=rep(0.7,3), 
+	brand=factor(c("tropicana","minute.maid","dominicks"),
+			levels=levels(oj$brand)),
 	feat=rep(1,3))
 # predict
 predict(fit3way, newdata=newdata)  ## predicted log units moved
