@@ -6,11 +6,11 @@ head(oj)
 
 # create some colors for the brands then plot
 brandcol <- c("green","red","gold")
-pdf('ojBoxplots.pdf', width=5, height=5)
-boxplot(log(price) ~ brand, data=oj, col=brandcol, horizontal=TRUE)
+png('ojBoxplots.png', width=5, height=5, units="in", res=720)
+boxplot(log(price) ~ brand, data=oj, col=brandcol, horizontal=TRUE, bty="n")
 dev.off()
-pdf('ojScatterplot.pdf', width=5, height=5)
-plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand])
+png('ojScatterplot.png', width=5, height=5, units="in", res=720)
+plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand], bty="n")
 dev.off()
 
 # simple log-log plus brand regression
@@ -78,18 +78,28 @@ b["log(price)"] + b["log(price):brandminute.maid"] + b["log(price):feat"] + b["l
 b["log(price)"] + b["log(price):brandtropicana"] + b["log(price):feat"] + b["log(price):brandtropicana:feat"]
 
 # table explaining why ads confounded our brand elasticity estimates
-oj$logmove<-log(oj$sales)
-salestable <- tapply(exp(oj$logmove), oj[,c("feat","brand")], sum)
+salestable <- tapply(oj$sales, oj[,c("feat","brand")], sum)
 mosaicplot(salestable,col=brandcol)
 
 
 # fit plots and R^2 
 # (the 'bty="n"' option removes boxes around your plot)
-plot(fit3way$fitted ~ oj$logmove, col=brandcol[oj$brand], bty="n")
+png('ojFittedVSy.png', width=5, height=5, units="in", res=720)
+plot(fit3way$fitted ~ log(oj$sales), col=brandcol[oj$brand], 
+	bty="n", ylim=range(c(fit3way$fitted,log(oj$sales))),
+	xlab="observed log(sales)", ylab="fitted log(sales)")
 abline(a=0,b=1)#  add a line with slope 1, intercept 0
 legend("topleft",legend=levels(oj$brand),fill=brandcol, bty="n")
-cor(fit3way$fitted,oj$logmove)^2
+dev.off()
 
+( SST <- sum( (log(oj$sales) - mean(log(oj$sales)))^2 ) )
+( SSE <- sum( ( log(oj$sales) - fit3way$fitted )^2 ) )
+
+1 - SSE/SST
+cor(fit3way$fitted,log(oj$sales))^2
+
+SST <- sum( (log(oj$sales) - mean(log(oj$sales)))^2 )
+SSE <- 
 # Model fit statistics
 summary(fit3way)
 1-fit3way$deviance/fit3way$null.deviance #1 - 13975/30079
