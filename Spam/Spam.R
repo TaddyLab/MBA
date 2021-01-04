@@ -38,7 +38,11 @@ predict(spamFit,newdata=spammy[c(1,4000),],type="response") #probabilities
 
 ### likelihood and deviance
 p <- seq(0,1,length=100)
-png("coinLHD.png", width=5, height=4, units="in", res=720)
+png("coinLHD.png", width=4, height=4, units="in", res=720)
 plot(p, dbinom(8, size=10, prob=p), type="l", ylab="likelihood", bty="n", lwd=1.5)
+abline(v=0.8, col="grey40", lty=3)
+dev.off()
+png("coinDEV.png", width=4, height=4, units="in", res=720)
+plot(p, -16*log(p) - 4*log(1-p), type="l", ylab="deviance", bty="n", lwd=1.5)
 abline(v=0.8, col="grey40", lty=3)
 dev.off()
