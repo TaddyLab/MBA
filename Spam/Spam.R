@@ -28,7 +28,7 @@ predict(spamFit, newdata=spammy[c(1,4000),]) #not probabilities
 predict(spamFit,newdata=spammy[c(1,4000),],type="response") #probabilities
 
 # fit plot
-png("spamFit.png", width=6, height=4, units="in", res=720)
+png("spamFit.png", width=5, height=3, units="in", res=720)
 par(mai=c(.5,.8,.2,.4))
 plot(spamFit$fitted~factor(spammy$spam, levels=0:1, labels=c("true important", "true spam")),
 	xlab="", ylab=c("fitted probability of spam"), col=c("blue","red"), bty="n")
