@@ -9,8 +9,12 @@ brandcol <- c("green","red","gold")
 png('ojBoxplots.png', width=5, height=5, units="in", res=720)
 boxplot(log(price) ~ brand, data=oj, col=brandcol, horizontal=TRUE, bty="n")
 dev.off()
+ind <- sample.int(nrow(oj))
 png('ojScatterplot.png', width=5, height=5, units="in", res=720)
-plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand], bty="n")
+plot(log(sales) ~ log(price), data=oj[ind,], col=brandcol[oj$brand[ind]], bty="n", cex=.5)
+dev.off()
+png('ojRawScatterplot.png', width=5, height=5, units="in", res=720)
+plot(sales ~ price, data=oj[ind,], col=brandcol[oj$brand[ind]], bty="n", cex=.5)
 dev.off()
 
 # simple log-log plus brand regression
