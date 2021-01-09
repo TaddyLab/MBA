@@ -6,15 +6,21 @@ head(oj)
 
 # create some colors for the brands then plot
 brandcol <- c("green","red","gold")
-png('ojBoxplots.png', width=5, height=5, units="in", res=720)
-boxplot(log(price) ~ brand, data=oj, col=brandcol, horizontal=TRUE, bty="n")
+png('ojBoxplots.png', width=3, height=5, units="in", res=720)
+boxplot(price ~ brand, data=oj, col=brandcol, bty="n", horizontal=TRUE, xaxt='n')
+axis(1, at=c(1,2,3,4))
 dev.off()
-ind <- sample.int(nrow(oj))
-png('ojScatterplot.png', width=5, height=5, units="in", res=720)
-plot(log(sales) ~ log(price), data=oj[ind,], col=brandcol[oj$brand[ind]], bty="n", cex=.5)
+
+png('ojScatterplot.png', width=3, height=5, units="in", res=720)
+plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
 dev.off()
-png('ojRawScatterplot.png', width=5, height=5, units="in", res=720)
-plot(sales ~ price, data=oj[ind,], col=brandcol[oj$brand[ind]], bty="n", cex=.5)
+png('ojRawScatterplot.png', width=3, height=5, units="in", res=720)
+plot(sales ~ price, data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
+dev.off()
+
+oj$featured <- factor(oj$feat==1)
+png('OJsales.png', width=5, height=5, units="in", res=720)
+plot(brand ~ featured, data=oj, col=rev(brandcol), bty="n", cex=.5)
 dev.off()
 
 # simple log-log plus brand regression

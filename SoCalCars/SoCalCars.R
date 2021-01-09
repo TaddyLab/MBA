@@ -21,8 +21,7 @@ sd(Cars$price)/sqrt(nrow(Cars))
 
 ## Generates figure 3.1, two histograms for price of cars
 # The hist() function calls the histogram
-pdf('SoCalCarsHist.pdf', width=8, height=4)
-par(mfrow=c(1,2))
+png('SoCalCarsHistRaw.png', width=4, height=4, units="in", res=720)
 hist(Cars$price, 
      freq=FALSE,
      main="", 
@@ -30,6 +29,8 @@ hist(Cars$price,
      col=8, 
      border="grey90"
 )
+dev.off()
+png('SoCalCarsHistLog.png', width=4, height=4, units="in", res=720)
 hist(log(Cars$price), 
      freq=FALSE, 
      main="", 
@@ -88,9 +89,12 @@ pvals <- summary(carsreg)$coef[-1,"Pr(>|t|)"]
 length(pvals)
 nullps <- runif(116)
 
-pdf('SoCalCarsPvals.pdf', width=10, height=5)
-par(mfrow=c(1,2))
+png('SoCalCarsPvals.png', width=5, height=5, units="in", res=720)
 hist(pvals, col=8, breaks=10, xlab="p-values", main="Cars Regression", freq=FALSE)
+dev.off()
+
+
+png('SoCalCarsNullPvals.png', width=5, height=5, units="in", res=720)
 hist(nullps, col=8, breaks=10, xlab="p-values", main="Null Distribution", ylim=c(0,7), freq=FALSE)
 dev.off()
 
@@ -109,13 +113,15 @@ print(sum(pvals<=cutoff10))
 
 # produce the order statistic plots and  the FDR control plot
 sig <- factor(pvals<=cutoff10)
-pdf('SoCalCarsFDR.pdf', width=8, height=4)
-par(mfrow=c(1,2))
+png('SoCalCarsOrderedPvals.png', width=4, height=4, units="in", res=720)
 plot(sort(pvals), pch=21, cex=.5, col="gray20",
     bty="n", xlab="rank", ylab="p-values")
 points(sort(nullps), pch=24, cex=.5, col="blue")
 legend("topleft", legend=c("null","observed"), pch=c(24,21), 
        col=c("blue", "gray20"), bty="n")
+dev.off()
+
+png('SoCalCarsFDR.png', width=4, height=4, units="in", res=720)
 plot(sort(pvals),
      col=c("grey60","red")[sig[order(pvals)]], 
      # above colors the significant p-values red
@@ -147,6 +153,7 @@ exp(caravan$fit+ c(-2,2)*sqrt(predvar))
 
 ## basic bootstrap for average price
 B <- 1000
+set.seed(3)
 muhats <- c() # empty set of estimates 
 for(b in 1:B){ # we'll draw B estimates
     # resample with-replacement and estimate mu.hat
@@ -171,7 +178,7 @@ dev.off()
 ### making decisions with the bootstrap
 
 ## 
-( z <- (mean(Cars$price) - 20000)/298 )
+( z <- (mean(Cars$price) - 20000)/296 )
 2*pnorm(-abs(z))
 
 ### mileage elasticity of price
