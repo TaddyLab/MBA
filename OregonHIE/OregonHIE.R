@@ -44,13 +44,32 @@ yBarW <- tapply(ohie$weight*ohie$doc_num, ohie$selected, sum)/nSelW
 table(ohie[,c("selected","numhh")])
 
 # linear fit to account for household size
-fitLin <- glm(doc_any ~ selected + numhh, data=ohie)
+## three ways to calculate the ATE
+fitLin <- glm(doc_num ~ selected + numhh, data=ohie)
 summary(fitLin)
+
+fitAdj <- glm(doc_num ~ selected*numhh, data=ohie)
+( beta <- coef(fitAdj) )
+
+numhhMean <- table(ohie$numhh)/nrow(ohie)
+beta["selected"] + beta["selected:numhh2"]*numhhMean["2"] + beta["selected:numhh3+"]*numhhMean["3+"] 
+
+mean( 
+	predict(fitAdj, newdata=data.frame(selected=1, numhh=ohie$numhh)) - 
+	predict(fitAdj, newdata=data.frame(selected=0, numhh=ohie$numhh)) )
 
 x <- scale(model.matrix( ~ numhh, data=ohie)[,-1], scale=FALSE)
 colMeans(x)
-fitLinAdj <- glm(doc_any ~ selected*x, data=ohie)
-summary(fitLinAdj)
+glm(doc_num ~ selected*x, data=ohie)
+
+getAdjATE <- function(data, ind){
+	fit <- glm(doc_num ~ selected*numhh, data=data[ind,])
+
+	mean( 
+	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh[ind])) - 
+	predict(fit, newdata=data.frame(selected=0, numhh=data$numhh[ind])) )
+}
+( bootAdjATE <- boot(ohie, getAdjATE, 1000, parallel="snow", ncpus=detectCores() ) )
 
 # collapse according to household
 yHH <- tapply(ohie$doc_any, ohie$household_id, mean)
