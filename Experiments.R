@@ -3,112 +3,108 @@
 ######################################
 
 ################## OHIE
-# Get the data from nber.org/oregon/4.data.html
+Get the data from nber.org/oregon/4.data.html
 
 # person_id  is key
-# treatment is in Description file, and is random conditional on the numhh (number of names in lottery)
+# treatment is in Description file, and is random conditional on the numhh_list (number of names in lottery)
 # in 2008 new spots opened for medicaid, which was previously closed to new enroll
-# we are interested in health insurance effect on increased utilization (hence costs)
-# (impact on health is a longer term outcome of interest)
+# we are interested in health insurance effect on increased costs and utilization (on health is longer term)
+# admin data is clean, survey data not necessarily balanced due to non-response bias
+# admin data has hospital admission (by dept, emerg itself is non-signif)
+# we can also look at number of hostpital days or total list cost
 
-ohie <- read.csv("OHIEresults.csv")
+################## inport and clean the data for text example
+#### Import data
+
+# foreign library has read.dta() function
+library(foreign)
+
+descr <- read.dta("oregonhie_descriptive_vars.dta")
+prgm <- read.dta("oregonhie_stateprograms_vars.dta")
+s12 <- read.dta("oregonhie_survey12m_vars.dta")
+
+#### look at and clean the data
+# nicely organized, one row per person
+all(s12$person_id == descr$person_id)
+all(s12$person_id == prgm$person_id)
+
+P <- descr[,c("person_id","household_id", "numhh_list")]
+P$medicaid <- as.numeric(prgm[,"ohp_all_ever_firstn_30sep2009"]=="Enrolled")
+P$selected <- as.numeric(descr[,"treatment"]=="Selected")
+levels(P$numhh_list) <- c("1","2","3+")
+
+# 12 month is the survey that really matters
+# need to control for household size interacted with survey return time
+Y <- s12[,c("weight_12m",
+	"doc_any_12m","doc_num_mod_12m",
+	"er_any_12m","er_num_mod_12m",
+	"hosp_any_12m","hosp_num_mod_12m")]
+Y$doc_any_12m <- as.numeric(Y$doc_any_12m=="Yes")
+Y$er_any_12m <- as.numeric(Y$er_any_12m=="Yes")
+Y$hosp_any_12m <- as.numeric(Y$hosp_any_12m=="Yes")
+
+# smk_ever_12m - num19_12m are sources of heterogeneity, plus descr
+X <- s12[,121:147]
+X$dt_returned <- factor(format(s12$dt_returned_12m, "%Y-%m"))
+
+insurv <- which(s12$sample_12m_resp == "12m mail survey responder")
+X <- X[insurv,]
+Y <- Y[insurv,]
+P <- P[insurv,]
+
+sapply(Y,function(y) sum(is.na(y)))
+nomiss <- which( !apply(Y,1, function(y) any(is.na(y))) )
+X <- X[nomiss,]
+Y <- Y[nomiss,]
+P <- P[nomiss,]
+
+# pull out the weights and attach doc_any to P
+weights <- Y[,1]
+Y <- Y[,-1]
+
+# replace some ridiculous values in survey and drop num19
+X$hhsize_12m[X$hhsize_12m>10] <- 10
+X$num19_12m <- NULL
+
+# organize to make it pretty
+P$doc_any_12m <- Y$doc_any_12m # you can explore other responses if you want
+P <- P[,c(1,2,6,5,4,3)]
+names(P)[6] <- "numhh"
 
 #### ATE - basic diffs in mean
-table(ohie[,c("selected","numhh")])
+head(P)
+nrow(P)
+table(P$selected)
 
-getATE <- function(data, ind, v="doc_num"){
-	ybar <- tapply(data[ind,v], data[ind,"selected"], mean)
-	return( ybar['1'] - ybar['0'] )
-}
-getATE(ohie,1:nrow(ohie))
+ybar <- tapply(P$doc_any_12m, P$selected, mean)
+(ATE = ybar['1'] - ybar['0'])
 
-ybar <- tapply(ohie[,"doc_num"], ohie[,"selected"], mean)
-( ATE = ybar['1'] - ybar['0'] )
-
-library(parallel)
-library(boot)
-( bootATE <- boot(ohie, getATE, 1000, v="doc_num", parallel="snow", ncpus=detectCores() ) )
-
-
-nSel <- table(ohie$selected)
-yVar <- tapply(ohie$doc_num, ohie$selected, var)
+nSel <- table(P$selected)
+yVar <- tapply(P$doc_any_12m, P$selected, var)
 seATE = sqrt(sum(yVar/nSel))
 ATE + c(-2,2)*seATE
 
 # weighting to adjust sample to represent population
-nSelW <- tapply(ohie$weight, ohie$selected, sum)
-yBarW <- tapply(ohie$weight*ohie$doc_num, ohie$selected, sum)/nSelW
+nSelW <- tapply(weights, P$selected, sum)
+yBarW <- tapply(weights*P$doc_any_12m, P$selected, sum)/nSelW
 (ATEweighted <-  yBarW['1'] - yBarW['0'])
 
 # covariate imbalance - larger households higher chance to be selected
-table(ohie[,c("selected","numhh")])
+table(P[,c("selected","numhh")])
 
 # linear fit to account for household size
-## don't do this:
-fitLin <- glm(doc_num ~ selected + numhh, data=ohie)
+fitLin <- glm(doc_any_12m ~ selected + numhh, data=P)
+summary(fitLin)
 
-## instead do this:
-fitAdj <- glm(doc_num ~ selected*numhh, data=ohie)
-( beta <- coef(fitAdj) )
-
-numhhMean <- table(ohie$numhh)/nrow(ohie)
-beta["selected"] + beta["selected:numhh2"]*numhhMean["2"] + beta["selected:numhh3+"]*numhhMean["3+"] 
-
-as.data.frame(table(ohie[,c("selected","numhh")]))
-as.data.frame(table(ohie[,c("numhh")]))
-
-unique(ohie[,c("selected","numhh")])
-table(ohie[,c("selected","numhh")])
-
-mean( 
-	predict(fitAdj, newdata=data.frame(selected=1, numhh=ohie$numhh)) - 
-	predict(fitAdj, newdata=data.frame(selected=0, numhh=ohie$numhh)) )
-
-x <- scale(model.matrix( ~ numhh, data=ohie)[,-1], scale=FALSE)
+x <- scale(model.matrix( ~ numhh, data=P)[,-1], scale=FALSE)
 colMeans(x)
-glm(doc_num ~ selected*x, data=ohie)
-
-getAdjATE <- function(data, ind){
-	fit <- glm(doc_num ~ selected*numhh, data=data[ind,])
-
-	mean( 
-	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh[ind])) - 
-	predict(fit, newdata=data.frame(selected=0, numhh=data$numhh[ind])) )
-}
-( bootAdjATE <- boot(ohie, getAdjATE, 1000, parallel="snow", ncpus=detectCores() ) )
-## above maybe too slow to teach?  Think about other options...
-
-ohieHH <- split(ohie, ohie$household)
-length(ohieHH)
-getBlock <- function(data, ids, fun=getAdjATE){
-    data <- do.call("rbind",data[ids])
-    getAdjATE(data, 1:nrow(data))
-}
-getBlock(ohieHH, 1:length(ohieHH))
-
-( betaBootB <- boot(CarsByDealer, getBetaBlock, 
-                          2000, parallel="snow", ncpus=detectCores()) )
-
-Vblock <- vcovCL(carsreg, cluster=Cars$dealer)
-clstats <- coeftest(carsreg, vcov = Vblock)
-round(clstats["log(mileage)",], 5)
-
-
-getAdjATEblock <- function(data, ind){
-	fit <- glm(doc_num ~ selected*numhh, data=data[ind,])
-
-	mean( 
-	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh[ind])) - 
-	predict(fit, newdata=data.frame(selected=0, numhh=data$numhh[ind])) )
-}
-( bootAdjATE <- boot(ohie, getAdjATE, 1000, parallel="snow", ncpus=detectCores() ) )
-
-
+fitLinAdj <- glm(doc_any_12m ~ selected*x, data=P)
+summary(fitLinAdj)
 
 # collapse according to household
-yHH <- tapply(ohie$doc_any, ohie$household_id, mean)
-IDs <- match(names(yHH), ohie$household_id) 
-selectedHH <- ohie$selected[IDs]
+yHH <- tapply(P$doc_any_12m, P$household_id, mean)
+IDs <- match(names(yHH), P$household_id) 
+selectedHH <- P$selected[IDs]
 xHH <- x[IDs,]
 summary(glm(yHH ~ selectedHH*xHH))
 
@@ -118,11 +114,11 @@ summary(glm(yHH ~ selectedHH*xHH))
 
 # bootstrap standard errors
 library(boot)
-n <- nrow(ohie)
-hhWho <- split(1:n, ohie$household_id) # rows grouped by HH
+n <- nrow(P)
+hhWho <- split(1:n, P$household_id) # rows grouped by HH
 bootFit <- function(hhlist, boothh) {
     bootSamp <- unlist(hhwho[boothh])   
-    coef(glm(doc_any ~ selected*x,data = ohie,subset=bootSamp))[2]
+    coef(glm(doc_any_12m ~ selected*x,data = P,subset=bootSamp))[2]
 }
 bs <- boot(names(hhWho), bootFit, 99)
 
@@ -132,7 +128,7 @@ quantile(bs$t, c(.025,.975))
 library(AER)
 sqrt(vcovCL(fitLinAdj, cluster = P$household_id)[2,2])
 
-fitLogit <- glm(doc_any ~ selected*numhh, data=P, family="binomial")
+fitLogit <- glm(doc_any_12m ~ selected*numhh, data=P, family="binomial")
 summary(fitLogit)
 
 predCats <- data.frame(selected=c(1,1,1,0,0,0),
@@ -339,7 +335,7 @@ summary(lm(y_observed ~ p_observed)) #compare with OLS
 ######################################
 stage1 <- lm( medicaid ~ selected + numhh, data=P)
 pHat <- predict(stage1, newdata=P)
-stage2 <- lm( doc_any ~ pHat + numhh, data=P,
+stage2 <- lm( doc_any_12m ~ pHat + numhh, data=P,
      x=TRUE #returns the model matrix used in regression
 )
 summary(stage2)
@@ -349,7 +345,7 @@ summary(stage2)
 
 # SEs using sandwich with complicated meat
 library(Matrix)
-resids <- P$doc_any - predict( stage2,
+resids <- P$doc_any_12m - predict( stage2,
      newdata=data.frame(numhh=P$numhh, pHat=P$medicaid))
 meat <- Diagonal(x=resids^2)
 bread <- stage2$x%*%solve(t(stage2$x)%*%stage2$x)
@@ -361,7 +357,7 @@ coef(stage2)["pHat"] + c(-2,2)*segam
 
 # SEs using AER package 
 library(AER)
-aerIV <- ivreg( doc_any  ~ medicaid + numhh | selected + numhh, data=P)
+aerIV <- ivreg( doc_any_12m  ~ medicaid + numhh | selected + numhh, data=P)
 summary(aerIV)
 
 # closer to sandwich result
