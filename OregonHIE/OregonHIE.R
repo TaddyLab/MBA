@@ -12,36 +12,34 @@
 # (impact on health is a longer term outcome of interest)
 
 ohie <- read.csv("OHIEresults.csv")
-
-#### ATE - basic diffs in mean
-table(ohie[,c("selected","numhh")])
-
-getATE <- function(data, ind, v="doc_num"){
-	ybar <- tapply(data[ind,v], data[ind,"selected"], mean)
-	return( ybar['1'] - ybar['0'] )
-}
-getATE(ohie,1:nrow(ohie))
+dim(ohie)
+head(ohie,3)
+table(ohie[,"selected"])
 
 ybar <- tapply(ohie[,"doc_num"], ohie[,"selected"], mean)
 ( ATE = ybar['1'] - ybar['0'] )
 
+fitATE <- glm(doc_num ~ selected, data=ohie)
+coef(fitATE)["selected"]
+summary(fitATE)
+
+
 library(parallel)
 library(boot)
-( bootATE <- boot(ohie, getATE, 1000, v="doc_num", parallel="snow", ncpus=detectCores() ) )
+getATE <- function(data, ind)	
+	coef(glm(doc_num ~ selected, data=data[ind,]))["selected"]
+( bootATE <- boot(ohie, getATE, 1000, 
+				  parallel="snow", ncpus=detectCores() ) )
 
 ## function for de-biased bootstrap confidence intervals
 getCI <- function(bo, p=c(.025,.975)) quantile(2*bo$t0 - bo$t, p)
 getCI(bootATE)
 
-nSel <- table(ohie$selected)
-yVar <- tapply(ohie$doc_num, ohie$selected, var)
-seATE = sqrt(sum(yVar/nSel))
-ATE + c(-2,2)*seATE
-
 # weighting to adjust sample to represent population
 nSelW <- tapply(ohie$weight, ohie$selected, sum)
 yBarW <- tapply(ohie$weight*ohie$doc_num, ohie$selected, sum)/nSelW
 (ATEweighted <-  yBarW['1'] - yBarW['0'])
+glm(doc_num ~ selected, weights=weight, data=ohie)
 
 # covariate imbalance - larger households higher chance to be selected
 table(ohie[,c("selected","numhh")])
@@ -96,7 +94,7 @@ getCI(bootATEblock)
 ## same ideas but logit
 getAdjATE_any <- function(data, ind){
 	data <- data[ind,]
-	fit <- glm(doc_any ~ selected*numhh, data=data, family="binomial")
+	fit <- glm(I(doc_num > 0) ~ selected*numhh, data=data, family="binomial")
 
 	mean( 
 	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh), type="response") - 

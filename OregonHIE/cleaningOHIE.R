@@ -30,13 +30,7 @@ levels(P$numhh_list) <- c("1","2","3+")
 
 # 12 month is the survey that really matters
 # need to control for household size interacted with survey return time
-Y <- s12[,c("weight_12m",
-	"doc_any_12m","doc_num_mod_12m",
-	"er_any_12m","er_num_mod_12m",
-	"hosp_any_12m","hosp_num_mod_12m")]
-Y$doc_any_12m <- as.numeric(Y$doc_any_12m=="Yes")
-Y$er_any_12m <- as.numeric(Y$er_any_12m=="Yes")
-Y$hosp_any_12m <- as.numeric(Y$hosp_any_12m=="Yes")
+Y <- s12[,c("weight_12m","doc_num_mod_12m")]
 
 # smk_ever_12m - num19_12m are sources of heterogeneity, plus descr
 X <- s12[,121:147]
