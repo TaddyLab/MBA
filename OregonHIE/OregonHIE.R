@@ -23,7 +23,6 @@ fitATE <- glm(doc_num ~ selected, data=ohie)
 coef(fitATE)["selected"]
 summary(fitATE)
 
-
 library(parallel)
 library(boot)
 getATE <- function(data, ind)	
@@ -45,65 +44,53 @@ glm(doc_num ~ selected, weights=weight, data=ohie)
 table(ohie[,c("selected","numhh")])
 
 # linear fit to account for household size
-## don't do this:
-fitLin <- glm(doc_num ~ selected + numhh, data=ohie)
-
-## instead do this:
 fitAdj <- glm(doc_num ~ selected*numhh, data=ohie)
+coef(fitAdj)
 mean( 
 	predict(fitAdj, newdata=data.frame(selected=1, numhh=ohie$numhh)) - 
 	predict(fitAdj, newdata=data.frame(selected=0, numhh=ohie$numhh)) )
 
-getAdjATE <- function(data, ind){
-	fit <- glm(doc_num ~ selected*numhh, data=data[ind,])
 
+## look at conditional dependence within households.
+library(data.table) # way faster!
+ohieHH <- split(ohie, ohie$household)
+system.time(rbindlist(ohieHH))
+system.time(do.call("rbind",ohieHH))
+
+getAdjATE <- function(data, ids, binder){
+    data <- binder(data[ids])
+    fit <- glm(doc_num ~ selected*numhh, data=data)
 	mean( 
-	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh[ind])) - 
-	predict(fit, newdata=data.frame(selected=0, numhh=data$numhh[ind])) )
+	   predict(fit, newdata=data.frame(selected=1, numhh=data$numhh)) - 
+	   predict(fit, newdata=data.frame(selected=0, numhh=data$numhh)) )
 }
-getAdjATE(ohie,1:nrow(ohie))
-( bootAdjATE <- boot(ohie, getAdjATE, 1000, parallel="snow", ncpus=detectCores() ) )
+(bootAdjATE <- boot(ohieHH, getAdjATE, binder=rbindlist,
+					1000, parallel="snow", ncpus=detectCores()))
 getCI(bootAdjATE)
 
 ## maybe faster, but only works for linear models:
 xshift <- scale(model.matrix( ~ numhh, data=ohie)[,-1], scale=FALSE)
 colMeans(xshift)
 coef(fitxshift <- glm(doc_num ~ selected*xshift, data=ohie))["selected"]
-#### in this case, the bootstrap SE and CLT SE are similar
-summary(fitxshift )
+library(sandwich)
+library(lmtest)
+coeftest(fitxshift, vcov = vcovCL(fitxshift, ohie$household) )
+
 ( bootAdjATE )
 
-## look at conditional dependence within households.
-ohieHH <- split(ohie, ohie$household)
-length(ohieHH)
-library(data.table) # way faster!
-system.time(a <- rbindlist(ohieHH))
-system.time(b <- do.call("rbind",ohieHH))
-all(a$doc_num==b$doc_num)
-
-getBlock <- function(data, ids, fun, binder){
-    data <- binder(data[ids])
-    fun(data, 1:nrow(data))
-}
-system.time( getBlock(ohieHH, 1:length(ohieHH), fun=getAdjATE, binder=rbindlist) )
-( bootATEblock <- boot(ohieHH, getBlock, fun=getAdjATE, binder=rbindlist,
-                          1000, parallel="snow", ncpus=detectCores()) )
-## get the quantile interval
-getCI(bootATEblock)
 
 ## same ideas but logit
-getAdjATE_any <- function(data, ind){
-	data <- data[ind,]
-	fit <- glm(I(doc_num > 0) ~ selected*numhh, data=data, family="binomial")
-
+getAdjATEbin <- function(data, ids, binder){
+    data <- binder(data[ids])
+    fit <- glm( doc_num > 0 ~ selected*numhh, data=data, family="binomial")
 	mean( 
-	predict(fit, newdata=data.frame(selected=1, numhh=data$numhh), type="response") - 
-	predict(fit, newdata=data.frame(selected=0, numhh=data$numhh), type="response") )
+	   predict(fit, data.frame(selected=1, numhh=data$numhh), type="response")- 
+	   predict(fit, data.frame(selected=0, numhh=data$numhh), type="response") )
 }
-getAdjATE_any(ohie,1:nrow(ohie))
+(bootAdjATEbin <- boot(ohieHH, getAdjATEbin, binder=rbindlist,
+					1000, parallel="snow", ncpus=detectCores()))
+getCI(bootAdjATEbin)
 
-( bootAdjATE_any <- boot(ohie, getAdjATE_any, 1000, parallel="snow", ncpus=detectCores() ) )
-getCI(bootAdjATE_any)
 
 #### OHIE 2SLS
 stage1 <- glm( medicaid ~ selected + numhh, data=ohie)
