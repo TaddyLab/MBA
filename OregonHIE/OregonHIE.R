@@ -91,6 +91,34 @@ getAdjATEbin <- function(data, ids, binder){
 					1000, parallel="snow", ncpus=detectCores()))
 getCI(bootAdjATEbin)
 
+#### heterogeneous treatment effects
+
+library(gamlr)
+rawsurvey <- read.csv("OHIEsurvey.csv")
+survey <- naref(rawsurvey, impute=TRUE)
+
+Xohie <- sparse.model.matrix(~ selected*., 
+	data=cbind(ohie[,c("selected","numhh")], survey[,-1]))[,-1]
+dim(Xohie)
+tail(colnames(Xohie))
+
+free <- c("selected","numhh2","numhh3+",
+		   "selected:numhh2","selected:numhh3+")
+htefit <- gamlr(x=Xohie, y=ohie$doc_num, free=free)
+gam <- drop(coef(htefit))
+gam <- gam[grep("selected", names(gam))]
+gam <- gam[gam!=0]
+length(gam)
+
+gam[grep("race", names(gam))]
+
+
+Xcntrl <- sparse.model.matrix(~ selected*., 
+	data=cbind(selected=0, numhh=ohie$numhh, survey[,-1]))[,-1]
+Xtreat <- sparse.model.matrix(~ selected*., 
+	data=cbind(selected=1, numhh=ohie$numhh, survey[,-1]))[,-1]
+predict(htefit, Xtreat[1,,drop=FALSE]) - 
+	predict(htefit, Xcntrl[1,,drop=FALSE])
 
 #### OHIE 2SLS
 stage1 <- glm( medicaid ~ selected + numhh, data=ohie)
@@ -98,16 +126,16 @@ pHat <- predict(stage1, newdata=ohie)
 stage2 <- glm( doc_num ~ pHat + numhh, data=ohie)
 coef(stage2)["pHat"]
 
-getIV <- function(data, ind){
-	data <- data[ind,]
+getIV <- function(data, ids, binder){
+	data <- binder(data[ids])
 	stage1 <- glm( medicaid ~ selected + numhh, data=data)
 	pHat <- predict(stage1, newdata=data)
 	stage2 <- glm( doc_num ~ pHat + numhh, data=data)
 	coef(stage2)["pHat"]
 }
-( bootIV <- boot(ohie, getIV, 1000, parallel="snow", ncpus=detectCores() ) )
-( bootIVblock <- boot(ohieHH, getBlock, fun=getIV, binder=rbindlist, 
-						1000, parallel="snow", ncpus=detectCores() ) )
+( bootIV <- boot(ohieHH, getIV, 1000, binder=rbindlist,
+				 parallel="snow", ncpus=detectCores() ) )
+getCI(bootIV)
 
 # IV and SEs using the AER package
 library(AER)
