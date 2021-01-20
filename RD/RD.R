@@ -42,7 +42,7 @@ plot(y ~ score, data=dat, subset=sample(c(above,below),10000),
 dev.off()
 
 mub <- coef(meandiff)[1]
-mua <- coef(meandiff)[2]
+mua <- coef(meandiff)[1] + coef(meandiff)[2]
 png('RDanalysisZoomed.png', width=4, height=4, units="in", res=720)
 plot(rr, preda, xlab="r", col="grey50", ylab="y",lwd=2, 
 	main="",
@@ -54,7 +54,7 @@ lines(dgrid$score[1:nr], linpred[1:nr], lwd=1.5, col=4)
 lines(dgrid$score[nr+1:nr], linpred[nr+1:nr], lwd=1.5, col=4)
 lines(dgrid$score[1:nr], rep(mub,nr), lwd=1.5, lty=2, col=2)
 lines(dgrid$score[nr+1:nr], rep(mua,nr), lwd=1.5, lty=2, col=2)
-lines(c(0,0),coef(linfit)[1] + c(0,coef(linfit)[2]), lwd=1.5, col=2, lty=3)
+lines(c(0,0),coef(linfit)[1] + c(0,coef(linfit)[2]), lwd=1.5, col=4, lty=3)
 dev.off()
 
 
