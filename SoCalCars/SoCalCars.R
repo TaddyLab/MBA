@@ -199,8 +199,9 @@ library(parallel)
 library(boot)
 detectCores()
 system.time( boot(Cars, getBeta, 2000) )
-system.time( boot(Cars, getBeta, 2000, parallel="multicore", ncpus=8) )
 system.time( boot(Cars, getBeta, 2000, parallel="snow", ncpus=8 ) )
+## this one will not give you any speedup on Windows
+system.time( boot(Cars, getBeta, 2000, parallel="multicore", ncpus=8) )
 ############
 
 ## test statistics
@@ -270,23 +271,32 @@ quantile(bhat - betaErrors,c(.025,.975))
 Cars[1000,]
 ( pred <- predict(carsreg, Cars[c(1000),]) )
 ( phat <- exp(pred) )
-
 getPrice <- function(data, ids, xpred){
-    data <- do.call("rbind",data[ids])
+    data <- do.call("rbind", data[ids])
     fit <- glm(log(price) ~ log(mileage) + make + 
                    year + certified + body + city, data=data)
     return(exp(predict(fit,xpred)))
 }
 getPrice(CarsByDealer, 1:length(CarsByDealer), Cars[1000,])
-( priceBoot <- boot(CarsByDealer, getPrice, xpred=Cars[1000,], 
-                          2000, parallel="snow", ncpus=detectCores()) )
 
-quantile(priceBoot$t, c(.025,.975))
+# if you change this seed, you might get errors in
+# the random chance that one of your boostrap samples includes no 
+# cars from the same city as our Caravan (Montclair)
+set.seed(101)  
+( priceBoot <- boot(CarsByDealer, getPrice, xpred=Cars[1000,], 
+                    2000, parallel="snow", ncpus=detectCores()) )
+
 
 priceErrors <- priceBoot$t - phat
 mean(priceErrors)
-quantile(phat-priceErrors, c(.025,.975))
+phat - mean(priceErrors)
 
+# bias corrected CI
+quantile(phat-priceErrors, c(.025,.975))
+# CI on original parameter sample
+quantile(priceBoot$t, c(.025,.975))
+
+# another bias corrected interval, this time on the elasticity
 ebhat <- exp(bhat)
 ebhatBoot <- exp(betaBoot$t)
 ebhatErrors <- ebhatBoot - ebhat
@@ -294,7 +304,9 @@ mean(ebhatErrors)
 quantile(ebhat - ebhatErrors,c(.025,.975))
 quantile(ebhatBoot,c(.025,.975))
 
-
+# same things with the getCI function
+getCI <- function(bo, p=c(.025,.975)) quantile(2*bo$t0 - bo$t, p)
+getCI(priceBoot)
 ### parametric bootstrap
 
 CarsSim <- function(data, mle){
