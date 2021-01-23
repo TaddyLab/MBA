@@ -33,4 +33,8 @@ coeftest(oml2, vcov=vcovHC(oml2))
 oml3 <- orthoML(xbig, d=cbind(d=d, "d:hown"=d*x[,"hown"]), y, nfold=5)
 coeftest(oml3, vcov=vcovHC(oml3))
 
+library(AER)
+z <- pension$e401
+aerIV <- ivreg( y  ~ d + . | z + ., data=x)
+summary(aerIV)
 
