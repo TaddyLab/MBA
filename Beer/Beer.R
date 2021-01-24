@@ -1,5 +1,6 @@
 library(gamlr)
 load("Beer.rda")
+ls()
 
 # data
 str(sales)
