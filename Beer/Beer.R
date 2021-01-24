@@ -1,11 +1,16 @@
 library(gamlr)
-load("dominicks-beer.rda")
+load("Beer.rda")
+
+# data
+str(sales)
+head(upc)
 
 # how many upcs?
-length( upctab <- table(wber$UPC) )
+length( upctab <- table(sales$UPC) )
+dim(upc)
 
 # check data types
-sapply(wber, class)
+str(sales)
 
 # create priceperoz
 wber$lp <- log(12*wber$PRICE/upc[wber$UPC,"OZ"])
