@@ -12,6 +12,15 @@ summary(ols)
 library(gamlr)
 xbig <- sparse.model.matrix( ~ .^3 -1, data=x)
 
+#ols on full data
+olsbig <- gamlr(cbind(d,xbig), y, lambda.start=0)
+coef(olsbig)[2,,drop=FALSE]
+
+#naive lasso
+naivefit <- gamlr(cbind(d,xbig), y)
+coef(naivefit)[2,,drop=FALSE]
+
+# orthogonal ML
 dfit <- gamlr(xbig, d, family="binomial")
 yfit <- gamlr(xbig, y)
 
@@ -27,14 +36,22 @@ library(sandwich)
 library(lmtest)
 coeftest(oml, vcov=vcovHC(oml))
 
-oml2 <- orthoML(xbig, d, y, nfold=5)
+# same thing, but with cross fitting
+oml2 <- orthoML(xbig, d, y, nfold=10, lmr=1e-4)
 coeftest(oml2, vcov=vcovHC(oml2))
 
-oml3 <- orthoML(xbig, d=cbind(d=d, "d:hown"=d*x[,"hown"]), y, nfold=5)
-coeftest(oml3, vcov=vcovHC(oml3))
-
+# alternatively, an IV analysis
 library(AER)
 z <- pension$e401
 aerIV <- ivreg( y  ~ d + . | z + ., data=x)
 summary(aerIV)
 
+## small samples
+set.seed(1)
+ss <- sample.int(nrow(pension),1000)
+coef(orthoML(xbig[ss,], d[ss], y[ss], nfold=20,lmr=1e-5))
+coef(gamlr(cbind(d,xbig)[ss,], y[ss], lmr=1e-5))[2]
+
+# heterogeneity in home prices
+oml3 <- orthoML(xbig, d=cbind(d=d, "d:hown"=d*x[,"hown"]), y, nfold=5)
+coeftest(oml3, vcov=vcovHC(oml3))

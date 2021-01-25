@@ -70,7 +70,7 @@ coef(fit3way)
 # create some data for prediction, using the data.frame function
 # note the care in specifying brand factor (levels must match original data)
 # we don't need all variables in oj; just those used as covariates in reg.
-newdata=data.frame(price=rep(0.7,3), 
+newdata=data.frame(price=rep(2,3), 
 	brand=factor(c("tropicana","minute.maid","dominicks"),
 			levels=levels(oj$brand)),
 	feat=rep(1,3))
@@ -95,9 +95,10 @@ mosaicplot(salestable,col=brandcol)
 # fit plots and R^2 
 # (the 'bty="n"' option removes boxes around your plot)
 png('ojFittedVSy.png', width=5, height=5, units="in", res=720)
-plot(fit3way$fitted ~ log(oj$sales), col=brandcol[oj$brand], 
+plot(log(oj$sales) ~ fit3way$fitted, col=brandcol[oj$brand], 
 	bty="n", ylim=range(c(fit3way$fitted,log(oj$sales))),
-	xlab="observed log(sales)", ylab="fitted log(sales)")
+	xlim=range(c(fit3way$fitted,log(oj$sales))),
+	ylab="observed log(sales)", xlab="fitted log(sales)")
 abline(a=0,b=1)#  add a line with slope 1, intercept 0
 legend("topleft",legend=levels(oj$brand),fill=brandcol, bty="n")
 dev.off()

@@ -7,67 +7,71 @@ str(sales)
 head(upc)
 
 # how many upcs?
-length( upctab <- table(sales$UPC) )
+length( upctab <- table(sales$upc) )
 dim(upc)
 
 # check data types
 str(sales)
 
-# create priceperoz
-wber$lp <- log(12*wber$PRICE/upc[wber$UPC,"OZ"])
+# create priceper12oz
+sales$lpoz <- log(sales$price/upc[as.character(sales$upc),"oz"])
 
-# smallbeer
+# calculate lags
+# not necesary, but always good practice
+sales <- sales[order(sales$store,sales$upc,sales$week),] 
+
+sales$lag <- unlist(tapply(sales$units, list(sales$upc,sales$store), 
+					function(x) c(NA,x[-length(x)])))
+head(sales)
+tail(sales)
+sales <- sales[!is.na(sales$lag),]
+
+# all together (results are garbage)
+coef( margfit <- glm(log(units) ~ lpoz, data=sales) )
+
+# panel regression
+library(gamlr)
+xfe <- sparse.model.matrix( ~ store + week + upc, data=sales)[,-1]
+
+# if you try to fit with OLS its too big in dense format
+# > olsfit <- glm( log(units) ~ lpoz + as.matrix(xfe), data=sales )
+# Error: cannot allocate vector of size 7.8 Gb
+
+fullfit <- gamlr(cbind(lpos=sales$lpoz,llag=log(sales$lag), xfe), 
+			     log(sales$units), lambda.start=0)
+coef(fullfit)[2:3,]
+
+# grab a small subsample
+# naive lasso
 set.seed(888)
-ss <- sample.int(nrow(wber),5e3)
+ss <- sample.int(nrow(sales),500)
+naivefit <- gamlr(cbind(lpos=sales$lpoz,llag=log(sales$lag), xfe)[ss,], 
+			      log(sales$units)[ss], free=1:2, standardize=FALSE, lmr=1e-5)
+print( coef(naivefit)[2:3,] )
 
-# all together
-coef( margfit <- lm(log(MOVE) ~ lp, data=wber[ss,]) )
+# ols fit
+olsfit <- gamlr(cbind(lpos=sales$lpoz,llag=log(sales$lag), xfe)[ss,], 
+			      log(sales$units)[ss], lambda.start=0)
+print( coef(olsfit)[2:3,] )
 
-# numeric matrices for week, store, item
-wber$s <- factor(wber$STORE)
-wber$u <- factor(wber$UPC)
-wber$w <- factor(wber$WEEK)
-xs <- sparse.model.matrix( ~ s-1, data=wber)
-xu <- sparse.model.matrix( ~ u-1, data=wber)
-xw <- sparse.model.matrix( ~ w-1, data=wber)
+# orthogonal ML
+omlfit <- orthoML(x=xfe[ss,], 
+				d=cbind(lpos=sales$lpoz,llag=log(sales$lag))[ss,], 
+				y=log(sales$units)[ss],
+				standardize=TRUE, nfold=5, lmr=1e-5)
+summary(omlfit)
+
+##############  heterogeneity
 
 # parse the item description text as a bag o' words
 library(tm)
-descr <- Corpus(VectorSource(as.character(upc$DESCRIP)))
-descr <- DocumentTermMatrix(descr)
-descr <- sparseMatrix(i=descr$i,j=descr$j,x=as.numeric(descr$v>0), # convert from stm to Matrix format
-              dims=dim(descr),dimnames=list(rownames(upc),colnames(descr)))
+title <- Corpus(VectorSource(as.character(upc$title)))
+title <- DocumentTermMatrix(title)
+title <- sparseMatrix(i=title$i,j=title$j,x=as.numeric(title$v>0), # convert from stm to Matrix format
+              dims=dim(title),dimnames=list(rownames(upc),colnames(title)))
 
-descr[1:5,1:6]
-descr[287,descr[287,]!=0]
-
-controls <- cBind(xs, xu, xw, descr[wber$UPC,]) 
-dim(controls)
-
-
-# naive lasso
-naivefit <- gamlr(x=cBind(lp=wber$lp,controls)[ss,], y=log(wber$MOVE)[ss], free=1, standardize=FALSE)
-print( coef(naivefit)[1:2,] )
-
-# full data mle fit
-fullfit <- gamlr(x=cBind(lp=wber$lp,controls), y=log(wber$MOVE), lambda.start=0)
-print( coef(fullfit)["lp",] )
-
-# mle
-mlefit <- gamlr(x=cBind(lp=wber$lp,controls)[ss,], y=log(wber$MOVE)[ss], lambda.start=0)
-print( coef(mlefit)[1:2,] )
-
-# double ML
-source("orthoML.R")
-dreg <- function(x,d){ 
-	gamlr(x, d, standardize=FALSE, lmr=1e-5) }
-
-yreg <- function(x,y){ 
-	gamlr(x, y, standardize=FALSE, lmr=1e-5) }
-
-resids <- orthoPLTE( x=controls[ss,], d=wber$lp[ss], y=log(wber$MOVE)[ss], dreg=dreg, yreg=yreg, nfold=5)
-
-##############  heterogeneity
+title[1:5,1:6]
+title[287,title[287,]!=0]
 
 # interact items and text with price
 lpxu <- xu*wber$lp
