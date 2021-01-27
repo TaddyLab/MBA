@@ -115,6 +115,26 @@ SSE <-
 summary(fit3way)
 1-fit3way$deviance/fit3way$null.deviance #1 - 13975/30079
 
+### Causal inference chapter
+oj<-read.csv("OJ.csv",strings=T)
+head(oj)
+basefit <- glm(log(sales) ~ log(price), data=oj)
+coef(basefit)
+brandfit <- glm(log(sales) ~ brand + log(price), data=oj)
+coef(brandfit)
 
+pricereg <- glm(log(price) ~ brand, data=oj)
+phat <- predict(pricereg, newdata=oj)
+presid <- log(oj$price)-phat
+coef( residfit <- glm( log(sales) ~ presid, data=oj) )
+
+residfit2 <- lm( log(sales) ~ phat + log(price), data=oj)
+coef(residfit2)
+
+salesreg <- lm(log(sales) ~ brand, data=oj)
+shat <- predict(salesreg, newdata=oj)
+sresid <- log(oj$sales) - shat
+residfit3 <- lm( sresid ~ presid - 1)
+coef(residfit3)
 
 
