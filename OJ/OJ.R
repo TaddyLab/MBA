@@ -120,7 +120,7 @@ oj<-read.csv("OJ.csv",strings=T)
 head(oj)
 basefit <- glm(log(sales) ~ log(price), data=oj)
 coef(basefit)
-brandfit <- glm(log(sales) ~ brand + log(price), data=oj)
+brandfit <- glm(log(sales) ~ log(price) + brand, data=oj)
 coef(brandfit)
 
 pricereg <- glm(log(price) ~ brand, data=oj)
@@ -128,7 +128,7 @@ phat <- predict(pricereg, newdata=oj)
 presid <- log(oj$price)-phat
 coef( residfit <- glm( log(sales) ~ presid, data=oj) )
 
-residfit2 <- lm( log(sales) ~ phat + log(price), data=oj)
+residfit2 <- glm( log(sales) ~ presid + brand, data=oj)
 coef(residfit2)
 
 salesreg <- lm(log(sales) ~ brand, data=oj)
