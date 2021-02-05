@@ -15,20 +15,20 @@ library(gamlr)
 xbig <- sparse.model.matrix( ~ .^3 -1, data=x)
 dim(xbig)
 
-#ols on full data
-system.time( olsbig <- gamlr(cbind(d,xbig), y, lambda.start=0, maxit=1e6) )
-coef(olsbig)[2,,drop=FALSE]
+# ols on full data, takes ~20 min!! commented out, run only if you are ready to chill
+# system.time( olsbig <- gamlr(cbind(d,xbig), y, lambda.start=0, maxit=1e6) )
+# coef(olsbig)[2,,drop=FALSE]
 
 # orthogonal ML
 # v1
 dfit <- gamlr(xbig, d, family="binomial")
 dhat <- predict(dfit, newdata=xbig, type="response")
 
-png('pensionTreatLasso.png', width=3, height=4, units="in", res=720)
+png('pensionTreatLasso.png', width=4, height=5, units="in", res=720)
 plot(dfit)
 dev.off()
 
-png('pensionBoxplot.png', width=3, height=4, units="in", res=720)
+png('pensionBoxplot.png', width=4, height=5, units="in", res=720)
 boxplot(dhat ~ d, col="purple", bty="n")
 dev.off()
 
@@ -47,21 +47,22 @@ naivefit <- gamlr(cbind(d,xbig), y, lmr=1e-3)
 coef(naivefit)[2,,drop=FALSE]
 plot(naivefit)
 
-# v2
+# orthogonal ML
+set.seed(1)
+oml <- orthoML(xbig, d, y, nfold=5, lmr=1e-4)
+summary(oml)
+
 library(sandwich)
 library(lmtest)
-
-yfit <- gamlr(xbig, y)
-yhat <- predict(yfit, newdata=xbig)
-ytil <- drop(y-yhat)
-oml <- glm(ytil ~ dres-1)
 coeftest(oml, vcov=vcovHC(oml))
 
-# same thing, but with cross fitting
-oml2 <- orthoML(xbig, d, y, nfold=8, lmr=1e-4)
+# two treatment effects
+d2 <- model.matrix( ~ hown*p401-hown, data=pension)
+oml2 <- orthoML(xbig, d2, y, nfold=5, lmr=1e-4)
 coeftest(oml2, vcov=vcovHC(oml2))
 
-# alternatively, an IV analysis
+
+# alternatively, an IV analysis (note this is what is in the original academic paper)
 library(AER)
 z <- pension$e401
 aerIV <- ivreg( y  ~ d + . | z + ., data=x)
