@@ -3,7 +3,7 @@ load("Beer.rda")
 ls()
 
 # data
-str(sales)
+head(sales)
 head(upc)
 
 # how many upcs?
@@ -17,21 +17,51 @@ str(sales)
 sales$lpoz <- log(sales$price/upc[as.character(sales$upc),"oz"])
 
 # calculate lags
-# not necesary, but always good practice
 sales <- sales[order(sales$store,sales$upc,sales$week),] 
-
 sales$lag <- unlist(tapply(sales$units, list(sales$upc,sales$store), 
 					function(x) c(NA,x[-length(x)])))
+sales <- sales[!is.na(sales$lag),]
 head(sales)
 tail(sales)
-sales <- sales[!is.na(sales$lag),]
+
+## calculate fixed effects
+library(gamlr)
+x <- sparse.model.matrix( ~ store + week + upc, data=sales)[,-1]
+
+# parse the item description text as a bag o' words
+library(tm)
+w <- Corpus(VectorSource(as.character(upc$title)))
+w <- DocumentTermMatrix(w)
+w <- sparseMatrix(i=w$i,j=w$j,x=as.numeric(w$v>0), # convert from stm to Matrix format
+              dims=dim(w),dimnames=list(rownames(upc),colnames(w)))
+
+w[1:5,1:6]
+w[287,w[287,]!=0]
+dim(w)
+## match to the observations
+w <- w[as.character(sales$upc),]
+dim(w)
+
 
 # all together (results are garbage)
 coef( margfit <- glm(log(units) ~ lpoz, data=sales) )
 
-# panel regression
-library(gamlr)
-xfe <- sparse.model.matrix( ~ store + week + upc, data=sales)[,-1]
+# naive regression
+naivefit <- gamlr(cbind(lpoz=sales$lpoz,llag=log(sales$lag), x), 
+			     log(sales$units), free=1:2,, standardize=FALSE, lmr=1e-4)
+coef(naivefit)[2:3,]
+
+## LTE lasso
+dfit <- gamlr(x,sales$lpoz, standardize=FALSE, lmr=1e-6)
+dhat <- drop(predict(dfit, x))
+
+png('beerTreatLasso.png', width=4, height=5, units="in", res=720)
+plot(dfit)
+dev.off()
+png('beerScatterplot.png', width=4, height=5, units="in", res=720)
+plot(dhat[1:1e5] ~ sales$lpoz[1:1e5], 
+	col="purple", cex=.5, pch=21, bty="n", xlab="d (lpoz)", ylab="dhat")
+dev.off()
 
 # if you try to fit with OLS its too big in dense format
 # > olsfit <- glm( log(units) ~ lpoz + as.matrix(xfe), data=sales )
@@ -78,18 +108,6 @@ coef(htefe)[1:4,]
 gammafe <- coef(htefe)[3] + drop(u%*%coef(htefe)[4:(ncol(u)+3),])
 hist(gammafe, freq=FALSE, xlab="elastcity", main="UPC Fixed Effects")
 
-# parse the item description text as a bag o' words
-library(tm)
-w <- Corpus(VectorSource(as.character(upc$title)))
-w <- DocumentTermMatrix(w)
-w <- sparseMatrix(i=w$i,j=w$j,x=as.numeric(w$v>0), # convert from stm to Matrix format
-              dims=dim(w),dimnames=list(rownames(upc),colnames(w)))
-
-w[1:5,1:6]
-w[287,w[287,]!=0]
-dim(w)
-w <- w[as.character(sales$upc),]
-dim(w)
 
 # double ML
 hteres <- gamlr(cbind(llag=llag, lpos=dtil, w*dtil, xfe), 
