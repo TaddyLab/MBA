@@ -3,24 +3,46 @@ library(tidyr)
 data(basque)
 
 ## synthetic controls analysis
-Y <- basque[,1:4] %>% spread(year, gdpcap)
-rownames(Y) <- Y$regionname
-Y <- Y[c(17,2:16,18), -(1:2)]
-Y <- t(Y[,1:35])
+## wrangle the data
+D <- basque[,1:4] %>% spread(year, gdpcap)
+rownames(D) <- D$regionname
+D <- D[c(17,2:16,18), -(1:2)]
+D <- D[,1:35]
+D[1:5,1:4]
+D <- as.matrix(D)
+
+## pull out the treatment and control series
+y <- D[1,]
+x <- t(D[-1,]) 
+
+# fit a regression on the pre-treatment data
+library(gamlr)
+fit <- gamlr( x[1:tstar,], y0[1:tstar], lmr=1e-4)
+plot(fit)
+
+# predict the post-treatment counterfactuals
+y0hat <- drop( predict(fit, x) )
+
+# calculate the estimated treatment effects
+gamhat <- y - y0hat
+mean( gamhat )
 
 # untreated years are through 1968
 library(gamlr)
-synthc <- function(Y, treated, when, ...){
-	Y0t <- Y[1:(when-1),]
-	fit <- gamlr( Y0t[,-treated], Y0t[,treated], ...)
+synthc <- function(D, tstar, ...){
+	D <- as.matrix(D)
+	y <- D[1,]
+	x <- t(D[-1,]) 
+	fit <- gamlr( x[1:tstar,], y0[1:tstar], ...)
 	plot(fit)
-	y0hat <- predict(fit, Y[,-treated])[,1]
-	ate <- mean( (Y[,treated] - y0hat)[when:nrow(Y)] )
+	y0hat <- drop( predict(fit, x) )
+	gamhat <- y - y0hat
+	ate <- mean( gamhat )
 	return(list(w=coef(fit)[,1], y0hat=y0hat, ate=ate ) )
 }
 
 # run the synthetic controls
-sc <- synthc(Y, 1, 1969-1954, lmr=1e-4)
+sc <- synthc(D, tstar=1969-1954, lmr=1e-4)
 sc$w[ sc$w !=0 ]
 
 # treatment effect

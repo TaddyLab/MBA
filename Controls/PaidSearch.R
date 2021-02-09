@@ -86,4 +86,11 @@ plot(asdate, psY[,1], type="l", lwd=2, xlab="", ylab="log Average Daily Revenue"
 lines(asdate, sc$y0hat, col="orange", lwd=2)
 abline(v=as.Date("2012-05-22"), lty=2,lwd=2)
 
+library(parallel)
+cl <- makeCluster(detectCores())
+clusterExport(cl, c("psY", "gamlr", "synthc"))
+
+getATE <- function(j){ synthc(psY, j, 52)$ate }
+ate <- parSapply(cl, 1:ncol(psY), getATE)
+mean(abs(ate[-1]) > abs(ate[1]))
 
