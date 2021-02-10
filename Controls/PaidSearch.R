@@ -54,43 +54,62 @@ plot(asdate, log(totalrev[,'1'])-log(totalrev[,'0']),
 abline(v=as.Date("2012-05-22"), lty=2,lwd=2)
 
 ### synthetic controls analysis
-## a bunch of wrankling to get the data in the right format
+## a bunch of wrangling to get the data in the right format
+ps <- read.csv("paidsearch.csv") 
+
 library(tidyr)
-psfat <- ps[,-(3:4)] %>% spread(dma,revenue)
-psfat$date <- as.Date(psfat$date, format="%d-%b-%y")
-psfat <- psfat[order(psfat$date),]
+ebayD <- ps[,-(3:4)] %>% spread(dma,revenue)
+ebayD$date <- as.Date(ebayD$date, format="%d-%b-%y")
+ebayD <- ebayD[order(ebayD$date),]
+row.names(ebayD) <- as.character(ebayD$date)
+ebayD <- t(ebayD[,-1])
 
-# 
-t <- as.numeric(psfat$date >= as.Date("2012-05-22"))
-may22 <- which(psfat$date == as.Date("2012-05-22"))
+## May 22 is t=52, so tstar=51.
+tstar <- 51
+ebayD[1:4,51:53]
+dim(ebayD)
 
-row.names(psfat) <- as.character(psfat$date)
-psfat <- psfat[,-1]
-dfat <- ebay[match(colnames(psfat),ebay$dma),"ssm.turns.off"]
-pstreat <- rowMeans(psfat[,dfat==1])
-psctrl <- psfat[,dfat==0]
-psY <- log(cbind(pstreat,psctrl))
+# Create a single average 'treatment' DMA series.
+d <- ebay$ssm.turns.off[match(rownames(ebayD),ebay$dma)]
+Y <- colMeans(ebayD[d==1,])
+ebayD <- log(rbind(Y,ebayD[d!=1,]))
+ebayD[1:4,51:53]
 
+# take the same function from basque.R
 library(gamlr)
-synthc <- function(Y, treated, when, ...){
-	Y0t <- Y[1:(when-1),]
-	fit <- gamlr( Y0t[,-treated], Y0t[,treated], ...)
-	plot(fit)
-	y0hat <- predict(fit, Y[,-treated])[,1]
-	ate <- mean( (Y[,treated] - y0hat)[when:nrow(Y)] )
-	return(list(w=coef(fit)[,1], y0hat=y0hat, ate=ate ) )
+synthc <- function(D, tstar, treated, ...){
+	y <- D[treated,]
+	x <- t(D[-treated,]) 
+	fit <- gamlr( x[1:tstar,], y[1:tstar], ...)
+	y0hat <- predict(fit, x)[,1]
+	gamhat <- y - y0hat
+	ate <- mean( gamhat[-(1:tstar)] )
+	return(list(y0hat=y0hat, gamhat=gamhat, ate=ate, fit=fit ) )
 }
 
-sc <- synthc(psY, 1, may22)
-plot(asdate, psY[,1], type="l", lwd=2, xlab="", ylab="log Average Daily Revenue")
-lines(asdate, sc$y0hat, col="orange", lwd=2)
-abline(v=as.Date("2012-05-22"), lty=2,lwd=2)
+# estimate the treatment effect
+ebaySC <- synthc(ebayD, tstar=51, 1)
+ebaySC$ate
+
+# plots
+png('ebaySCfit.png', width=4, height=4, units="in", res=720)
+plot(ebaySC$fit)
+dev.off()
+
+png('ebaySCpred.png', width=4, height=4, units="in", res=720)
+asdate <- as.Date(colnames(ebayD))
+plot(asdate, ebayD[1,], type="l", ylim=c(11.2,12), bty="n", xlab="", ylab="log Average Daily Revenue")
+lines(asdate, ebaySC$y0hat, col="orange")
+abline(v=as.Date("2012-05-22"), lty=2)
+legend("topright", bty="n", legend=c("observed","synthetic"), 
+	lwd=2, col=c(col=c("black","orange")) )
+
+dev.off()
 
 library(parallel)
 cl <- makeCluster(detectCores())
-clusterExport(cl, c("psY", "gamlr", "synthc"))
-
-getATE <- function(j){ synthc(psY, j, 52)$ate }
-ate <- parSapply(cl, 1:ncol(psY), getATE)
+clusterExport(cl, c("ebayD", "gamlr", "synthc"))
+getATE <- function(j){ synthc(ebayD, 52, j)$ate }
+ate <- parSapply(cl, 1:nrow(ebayD), getATE)
 mean(abs(ate[-1]) > abs(ate[1]))
 
