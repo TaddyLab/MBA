@@ -22,7 +22,12 @@ dim(xbig)
 # orthogonal ML
 # v1
 dfit <- gamlr(xbig, d, family="binomial")
-dhat <- predict(dfit, newdata=xbig, type="response")
+dhat <- predict(dfit, newdata=xbig, type="response")[,1]
+dtil <- d-dhat
+
+yfit <- gamlr(xbig, d)
+yhat <- predict(yfit, newdata=xbig)[,1]
+ytil <- y-yhat
 
 png('pensionTreatLasso.png', width=4, height=5, units="in", res=720)
 plot(dfit)
@@ -32,15 +37,14 @@ png('pensionBoxplot.png', width=4, height=5, units="in", res=720)
 boxplot(dhat ~ d, col="purple", bty="n")
 dev.off()
 
-dres <- drop(d-dhat)
-ctrlfit <- gamlr(cbind(dres=dres,xbig), y, lmr=1e-3)
-coef(ctrlfit)[2,,drop=FALSE]
-plot(ctrlfit)
 
-## with dres unpenalized
-ctrlfitFree <- gamlr(cbind(dres=dres,xbig), y, lmr=1e-3, free=1)
-coef(ctrlfitFree)[2,,drop=FALSE]
-plot(ctrlfit)
+png('pensionYscatter.png', width=4, height=5, units="in", res=720)
+plot(yhat ~ y, col=rgb(1,.5,0,.25), bty="n", pch=20)
+dev.off()
+
+png('pensionResids.png', width=4, height=5, units="in", res=720)
+plot(ytil ~ dtil, col=rgb(1,0,1,.25), bty="n", pch=20)
+dev.off()
 
 #naive lasso
 naivefit <- gamlr(cbind(d,xbig), y, lmr=1e-3)
@@ -54,38 +58,15 @@ summary(oml)
 
 library(sandwich)
 library(lmtest)
-coeftest(oml, vcov=vcovHC(oml))
+coeftest(oml, vcov=vcovHC(oml, "HC0"))
 
 # two treatment effects
 d2 <- model.matrix( ~ hown*p401-hown, data=pension)
 oml2 <- orthoML(xbig, d2, y, nfold=5, lmr=1e-4)
 coeftest(oml2, vcov=vcovHC(oml2))
 
-
 # alternatively, an IV analysis (note this is what is in the original academic paper)
 library(AER)
 z <- pension$e401
 aerIV <- ivreg( y  ~ d + . | z + ., data=x)
 summary(aerIV)
-
-## small samples
-set.seed(5807)
-ss <- sample.int(nrow(pension),1000)
-coef(naivefit <- gamlr(cbind(d,xbig)[ss,], y[ss], lmr=1e-3))[2]
-plot(naivefit)
-
-# doesn't converge
-# coef(gamlr(cbind(d,xbig)[ss,], y[ss], lambda.start=0))[2]
-
-dfitss <- gamlr(xbig[ss,], d[ss], family="binomial")
-plot(dfitss)
-dhatss <- predict(dfitss, newdata=xbig, type="response")
-fitss <- gamlr(cbind(d-dhatss,xbig)[ss,], y[ss], lmr=1e-3)
-plot(fitss)
-coef(fitss)[2,,drop=FALSE]
-
-summary(orthoML(xbig[ss,], d[ss], y[ss], nfold=10,lmr=1e-5))
-
-# heterogeneity in home prices
-oml3 <- orthoML(xbig, d=cbind(d=d, "d:hown"=d*x[,"hown"]), y, nfold=5)
-coeftest(oml3, vcov=vcovHC(oml3))

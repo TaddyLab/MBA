@@ -115,6 +115,7 @@ SSE <-
 summary(fit3way)
 1-fit3way$deviance/fit3way$null.deviance #1 - 13975/30079
 
+############################
 ### Causal inference chapter
 oj<-read.csv("OJ.csv",strings=T)
 head(oj)
@@ -123,18 +124,18 @@ coef(basefit)
 brandfit <- glm(log(sales) ~ log(price) + brand, data=oj)
 coef(brandfit)
 
+# single residualization
 pricereg <- glm(log(price) ~ brand, data=oj)
-phat <- predict(pricereg, newdata=oj)
-presid <- log(oj$price)-phat
-coef( residfit <- glm( log(sales) ~ presid, data=oj) )
+dhat <- predict(pricereg, newdata=oj)
+dtil <- log(oj$price)-dhat
+coef( glm( log(sales) ~ dtil, data=oj) )
 
-residfit2 <- glm( log(sales) ~ presid + brand, data=oj)
-coef(residfit2)
-
+# double residualization
 salesreg <- lm(log(sales) ~ brand, data=oj)
-shat <- predict(salesreg, newdata=oj)
-sresid <- log(oj$sales) - shat
-residfit3 <- lm( sresid ~ presid - 1)
-coef(residfit3)
+yhat <- predict(salesreg, newdata=oj)
+ytil<- log(oj$sales) - yhat
+coef( glm( ytil ~ dtil -1 ) )
 
+## same thing with an intercept
+coef( glm( ytil ~ dtil) ) 
 

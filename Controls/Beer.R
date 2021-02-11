@@ -49,41 +49,38 @@ coef( margfit <- glm(log(units) ~ lpoz, data=sales) )
 
 # naive regression
 naivefit <- gamlr(cbind(lpoz=sales$lpoz,llag=log(sales$lag), x), 
-			     log(sales$units), free=1:2,, standardize=FALSE, lmr=1e-4)
+			     log(sales$units), free=1:2, lmr=1e-3)
 coef(naivefit)[2:3,]
 
-## LTE lasso
-dfit <- gamlr(x,sales$lpoz, standardize=FALSE, lmr=1e-5)
-dhat <- drop(predict(dfit, x))
-resid <- sales$lpoz - dhat
+## Orthogonal ML
+oml <- orthoML(cbind(log(sales$lag),x), sales$lpoz, log(sales$units), 
+			   nfold=5, lmr=1e-5, free=1)
+library(sandwich)
+library(lmtest)
+coeftest(oml, vcov=vcovHC(oml,"HC0"))
 
-
-png('beerTreatLasso.png', width=4, height=5, units="in", res=720)
-plot(dfit)
-dev.off()
 png('beerScatterplot.png', width=4, height=5, units="in", res=720)
-plot(dhat[1:1e5] ~ sales$lpoz[1:1e5], 
-	col="purple", cex=.5, pch=21, bty="n", xlab="d (lpoz)", ylab="dhat")
+plot(log(sales$units) ~ sales$lpoz,
+	col=rgb(1,0.5,0,.25), cex=.5, pch=21, bty="n", xlab="log price/oz", ylab="log units")
 dev.off()
-
-
-beerATE <- gamlr(cbind(lpoz=resid,llag=log(sales$lag), x), 
-			     log(sales$units), free=1:2, standardize=FALSE, lmr=1e-4)
-coef(beerATE)[2:3,]
+png('beerResidScatterplot.png', width=4, height=5, units="in", res=720)
+plot(oml$y[1:1e5] ~ oml$x[1:1e5], 
+	col=rgb(1,0,1,.25), cex=.5, pch=21, bty="n", xlab="dtil", ylab="ytil")
+dev.off()
 
 # fit with OLS 
 beerOLS <- glm( log(units) ~ lpoz + log(lag) + as.matrix(x), data=sales )
 summary(beerOLS)
 
 # do the HTE fit.
+dtil <- drop( oml$x )
+dw <- cbind(lpoz=dtil, w*dtil)
+beerHTE <- gamlr(dw, oml$y, standardize=FALSE, lmr=1e-4, free=1)
+png('beerHTE.png', width=4, height=5, units="in", res=720)
+plot(beerHTE)
+dev.off()
 
-nuw <- cbind(lpoz=resid, resid*w)
-beerHTE <- gamlr(cbind(nuw, llag=log(sales$lag), x), 
-			 log(sales$units), free="llag", standardize=FALSE, lmr=1e-3)
-
-gam <- coef(beerHTE)[c("lpoz",colnames(w)),]
-head(gam)
-
+gam <- coef(beerHTE)[-1,]
 elastics <- drop( cbind(1,wupc) %*% gam )			
 upc$elastics <- elastics
 head(upc,1)
