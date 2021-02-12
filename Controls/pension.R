@@ -19,8 +19,7 @@ dim(xbig)
 # system.time( olsbig <- gamlr(cbind(d,xbig), y, lambda.start=0, maxit=1e6) )
 # coef(olsbig)[2,,drop=FALSE]
 
-# orthogonal ML
-# v1
+# double residualization
 dfit <- gamlr(xbig, d, family="binomial")
 dhat <- predict(dfit, newdata=xbig, type="response")[,1]
 dtil <- d-dhat
@@ -28,6 +27,12 @@ dtil <- d-dhat
 yfit <- gamlr(xbig, d)
 yhat <- predict(yfit, newdata=xbig)[,1]
 ytil <- y-yhat
+
+glm(ytil ~ dtil -1)
+
+
+library(sandwich)
+library(coeftest)
 
 png('pensionTreatLasso.png', width=4, height=5, units="in", res=720)
 plot(dfit)
@@ -37,6 +42,9 @@ png('pensionBoxplot.png', width=4, height=5, units="in", res=720)
 boxplot(dhat ~ d, col="purple", bty="n")
 dev.off()
 
+png('pensionResponseLasso.png', width=4, height=5, units="in", res=720)
+plot(yfit)
+dev.off()
 
 png('pensionYscatter.png', width=4, height=5, units="in", res=720)
 plot(yhat ~ y, col=rgb(1,.5,0,.25), bty="n", pch=20)
@@ -46,24 +54,35 @@ png('pensionResids.png', width=4, height=5, units="in", res=720)
 plot(ytil ~ dtil, col=rgb(1,0,1,.25), bty="n", pch=20)
 dev.off()
 
-#naive lasso
-naivefit <- gamlr(cbind(d,xbig), y, lmr=1e-3)
-coef(naivefit)[2,,drop=FALSE]
-plot(naivefit)
-
 # orthogonal ML
 set.seed(1)
-oml <- orthoML(xbig, d, y, nfold=5, lmr=1e-4)
-summary(oml)
+dml <- doubleML(xbig, d, y, family="binomial", nfold=5)
+summary(dml)
 
 library(sandwich)
 library(lmtest)
-coeftest(oml, vcov=vcovHC(oml, "HC0"))
+coeftest(dml, vcov=vcovHC(dml, "HC0"))
+
+#naive lasso
+naivefit <- gamlr(cbind(d,xbig), y, lmr=1e-3, free=1)
+coef(naivefit)[2,,drop=FALSE]
+plot(naivefit)
 
 # two treatment effects
-d2 <- model.matrix( ~ hown*p401-hown, data=pension)
-oml2 <- orthoML(xbig, d2, y, nfold=5, lmr=1e-4)
-coeftest(oml2, vcov=vcovHC(oml2))
+d2 <- model.matrix( ~ hown*p401-hown-1, data=pension)
+d2[c(1,6234),]
+# use parallel library
+library(parallel)
+cl <- makeCluster(detectCores())
+set.seed(1)
+dml2 <- doubleML(xbig, d2, y, family="binomial", nfold=5, cl=cl, lmr=1e-3)
+coeftest(dml2, vcov=vcovHC(dml2, "HC0"))
+
+# same thing, but interacting with single treatment residuals
+dtil <- dml$x
+ytil <- dml$y
+dml3 <- glm( ytil ~ dtil*hown - hown - 1, data=pension)
+coeftest(dml3, vcov=vcovHC(dml3, "HC0"))
 
 # alternatively, an IV analysis (note this is what is in the original academic paper)
 library(AER)

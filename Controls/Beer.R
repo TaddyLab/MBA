@@ -53,11 +53,12 @@ naivefit <- gamlr(cbind(lpoz=sales$lpoz,llag=log(sales$lag), x),
 coef(naivefit)[2:3,]
 
 ## Orthogonal ML
-oml <- orthoML(cbind(log(sales$lag),x), sales$lpoz, log(sales$units), 
-			   nfold=5, lmr=1e-5, free=1)
 library(sandwich)
 library(lmtest)
-coeftest(oml, vcov=vcovHC(oml,"HC0"))
+set.seed(1)
+beerDML <- doubleML(cbind(log(sales$lag),x), sales$lpoz, log(sales$units), 
+			   nfold=5, lmr=1e-5, free=1)
+coeftest(beerDML, vcov=vcovHC(beerDML,"HC0"))
 
 png('beerScatterplot.png', width=4, height=5, units="in", res=720)
 plot(log(sales$units) ~ sales$lpoz,
@@ -73,14 +74,20 @@ beerOLS <- glm( log(units) ~ lpoz + log(lag) + as.matrix(x), data=sales )
 summary(beerOLS)
 
 # do the HTE fit.
-dtil <- drop( oml$x )
-dw <- cbind(lpoz=dtil, w*dtil)
-beerHTE <- gamlr(dw, oml$y, standardize=FALSE, lmr=1e-4, free=1)
+ytil <- beerDML$y
+dtil <- beerDML$x 
+dw <- cbind(dtil, w*drop(dtil))
+
+beerHTE <- gamlr(dw, ytil, standardize=FALSE, lmr=1e-4, free=1)
+
 png('beerHTE.png', width=4, height=5, units="in", res=720)
 plot(beerHTE)
 dev.off()
 
 gam <- coef(beerHTE)[-1,]
+sum(gam!=0)
+head(sort(gam))
+
 elastics <- drop( cbind(1,wupc) %*% gam )			
 upc$elastics <- elastics
 head(upc,1)
