@@ -50,3 +50,79 @@ legend("topright", title="Income",
 	legend=c("5k","26k","35k","47k","150k"),
 	fill=heat.colors(5), bty="n")
 dev.off()
+
+######
+# Forests
+library(tree)
+library(ranger)
+library(maps)
+ca <- read.csv("CalCensus.csv")
+
+## First, lets do it with CART
+## no need for interactions; the tree finds them automatically
+catree <- tree(log(medianHouseValue) ~ ., data=ca) 
+
+png('CalTree.png', width=5, height=10, units="in", res=720)
+plot(catree, col="grey50")
+text(catree)
+dev.off()
+
+## looks like the most complicated tree is best! 
+cvca <- cv.tree(catree)
+cvca$size[which.min(cvca$dev)]
+plot(cvca)
+
+## Next, with random forest 
+## limit the number of trees and the minimum tree size for speed
+## also run on 4 cores if you've got them
+## add importance so that we store the variable importance information
+carf <- ranger(log(medianHouseValue) ~ ., data=ca, num.threads=4,
+  write.forest=TRUE, num.tree=200, importance="impurity")
+## variable importance 
+sort(carf$variable.importance, decreasing=TRUE)
+
+## calculate resiuals and 
+## plot the predictions by location
+## the plotting is a bit complex here, uses the maps library
+yhattree <- predict(catree, ca)
+yhatrf <- predict(carf, ca)$predictions
+rt <- log(ca$medianHouseValue) - yhattree
+rr <- log(ca$medianHouseValue) - yhatrf
+
+png('CalTreeResiduals.png', width=8, height=4, units="in", res=720)
+par(mfrow=c(1,2), mai=c(.1,.1,.1,.1), omi=c(0,0,0,0))
+map('state', 'california') 
+points(ca[,1:2], col=c("red","black")[1 + (rt>0)], cex=abs(rt))
+mtext("tree", line=1)
+map('state', 'california') 
+points(ca[,1:2], col=c("red","black")[1 + (rr>0)], cex=abs(rr))
+mtext("forest", line=1)
+legend("topright", title="residuals", bty="n", pch=1, 
+	pt.cex=c(2,1,1,2), col=c("black","black","red","red"), legend=c(2,1, -1,-2))
+dev.off()
+
+## out of sample test run
+MSE <- list(CART=NULL, RF=NULL)
+splits <- sample(1:10, nrow(ca), replace=TRUE)
+for(i in 1:10){
+  train <- which(splits!=i)
+  test <- which(splits==i)
+
+  rt <- tree(log(medianHouseValue) ~ ., data=ca[train,], mindev=1e-4) 
+  yhat.rt <- predict(rt, newdata=ca[-train,])
+  MSE$CART <- c( MSE$CART, 
+  				var(log(ca$medianHouseValue)[-train] - yhat.rt))
+
+  rf <- ranger(log(medianHouseValue) ~ ., data=ca[train,], 
+          		num.tree=400, num.threads=4)
+  yhat.rf <- predict(rf, data=ca[-train,])$predictions
+  MSE$RF <- c( MSE$RF, var(log(ca$medianHouseValue)[-train] - yhat.rf) )
+ 
+  cat(i)
+} 
+# results
+lapply(MSE, mean)
+# plot
+png('CalOOS.png', width=4, height=5, units="in", res=720)
+boxplot(log(as.data.frame(MSE)), col="dodgerblue", xlab="model", ylab="MSE")
+dev.off()
