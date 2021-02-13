@@ -1,8 +1,7 @@
-
 # Import the data file on cars for sale into R
 Cars <- read.csv("SoCalCars.csv", stringsAsFactors = TRUE)
 
-# We'll now take a sample we feel is representative of used cars we want to test
+# We'll now take a subset we feel is representative of used cars we want to test
 # This sample includes used cars  with prices at or below $100,000, and mileage greater than or equal to 10,000 miles
 # but less than 150,000 miles.
 Cars <- subset(Cars,
@@ -21,7 +20,7 @@ sd(Cars$price)/sqrt(nrow(Cars))
 
 ## Generates figure 3.1, two histograms for price of cars
 # The hist() function calls the histogram
-png('SoCalCarsHistRaw.png', width=4, height=4, units="in", res=720)
+#png('SoCalCarsHistRaw.png', width=4, height=4, units="in", res=720)
 hist(Cars$price, 
      freq=FALSE,
      main="", 
@@ -29,8 +28,8 @@ hist(Cars$price,
      col=8, 
      border="grey90"
 )
-dev.off()
-png('SoCalCarsHistLog.png', width=4, height=4, units="in", res=720)
+#dev.off()
+#png('SoCalCarsHistLog.png', width=4, height=4, units="in", res=720)
 hist(log(Cars$price), 
      freq=FALSE, 
      main="", 
@@ -38,7 +37,7 @@ hist(log(Cars$price),
      border="grey90",
      xlab="log(Price)"
 )
-dev.off()
+#dev.off()
 
 # If we consider the Cars dataset to be a sample of the cars for sale in 
 # Southern California, then the sampling distribution's mean should be
@@ -55,7 +54,7 @@ calc_values <- seq(xbar-4*xbse,xbar+4*xbse,length=100)
 # with dnorm function
 samp_pdf_values <- dnorm(calc_values, xbar, xbse)
 # Third, plot the calc_values versus the sample_pdf_values for a view of the sample distribution
-pdf("SoCalCarsMeanDensity.pdf", width=4, height=4)
+#pdf("SoCalCarsMeanDensity.pdf", width=4, height=4)
 plot(calc_values, 
      samp_pdf_values, 
      type="l", 
@@ -63,7 +62,7 @@ plot(calc_values,
      xlab="average used car price", 
      ylab="density"
 )
-dev.off()
+#dev.off()
 
 ## hypothesis testing
 
@@ -89,14 +88,13 @@ pvals <- summary(carsreg)$coef[-1,"Pr(>|t|)"]
 length(pvals)
 nullps <- runif(116)
 
-png('SoCalCarsPvals.png', width=5, height=5, units="in", res=720)
+#png('SoCalCarsPvals.png', width=5, height=5, units="in", res=720)
 hist(pvals, col=8, breaks=10, xlab="p-values", main="Cars Regression", freq=FALSE)
-dev.off()
+#dev.off()
 
-
-png('SoCalCarsNullPvals.png', width=5, height=5, units="in", res=720)
+#png('SoCalCarsNullPvals.png', width=5, height=5, units="in", res=720)
 hist(nullps, col=8, breaks=10, xlab="p-values", main="Null Distribution", ylim=c(0,7), freq=FALSE)
-dev.off()
+#dev.off()
 
 
 # Function to get significance cut-off alpha from FDR q
@@ -113,25 +111,23 @@ print(sum(pvals<=cutoff10))
 
 # produce the order statistic plots and  the FDR control plot
 sig <- factor(pvals<=cutoff10)
-png('SoCalCarsOrderedPvals.png', width=4, height=4, units="in", res=720)
+#png('SoCalCarsOrderedPvals.png', width=4, height=4, units="in", res=720)
 plot(sort(pvals), pch=21, cex=.5, col="gray20",
     bty="n", xlab="rank", ylab="p-values")
 points(sort(nullps), pch=24, cex=.5, col="blue")
 legend("topleft", legend=c("null","observed"), pch=c(24,21), 
        col=c("blue", "gray20"), bty="n")
-dev.off()
+#dev.off()
 
-png('SoCalCarsFDR.png', width=4, height=4, units="in", res=720)
+#png('SoCalCarsFDR.png', width=4, height=4, units="in", res=720)
 plot(sort(pvals),
      col=c("grey60","red")[sig[order(pvals)]], 
      # above colors the significant p-values red
      pch=20, bty="n", xlab="rank", ylab="p-values" )
-
 ## Add the line of significance for q=0.1
 q <- 0.1
 abline(a=0, b=0.1/length(pvals), lwd=1.5)
-dev.off()
-
+#dev.off()
 
 nullpval <- runif(length(pvals))
 plot(sort(nullpval))
@@ -152,10 +148,9 @@ exp(caravan$fit+ c(-2,2)*sqrt(predvar))
 ### bootstrapping
 
 ## basic bootstrap for average price
-B <- 1000
-set.seed(3)
+set.seed(1)
 muhats <- c() # empty set of estimates 
-for(b in 1:B){ # we'll draw B estimates
+for(b in 1:1000){ # we'll draw B estimates
     # resample with-replacement and estimate mu.hat
     samp_b <- sample.int(nrow(Cars), replace=TRUE)
     muhat_b <- mean(Cars$price[samp_b])
@@ -163,7 +158,7 @@ for(b in 1:B){ # we'll draw B estimates
 }
 sd(muhats)
 
-pdf("SoCalCarsBootPrice.pdf", width=4, height=4)
+#pdf("SoCalCarsBootPrice.pdf", width=4, height=4)
 hist(muhats, main="", xlab="average used car price", freq=FALSE,
      col=8, border="grey90", breaks=20,
      xlim=c(xbar-4*xbse,xbar+4*xbse), 
@@ -173,12 +168,13 @@ lines(calc_values,
      type="l", 
      col="blue"
 )
-dev.off()
+#dev.off()
+
 
 ### making decisions with the bootstrap
 
-## 
-( z <- (mean(Cars$price) - 20000)/296 )
+## p-value calculation (note the absolute value on z)
+( z <- (mean(Cars$price) - 20000)/292 )
 2*pnorm(-abs(z))
 
 ### mileage elasticity of price
@@ -194,7 +190,7 @@ getBeta <- function(data, obs){
 }
 getBeta(Cars, 1:nrow(Cars))
 
-#########
+#########  side box on bootstrapping and parallel
 library(parallel)
 library(boot)
 detectCores()
@@ -216,10 +212,15 @@ betaBoot$t0
 sd(betaBoot$t)
 mean(betaBoot$t) - bhat
 
+## standard errors
+sd(betaBoot$t)
+betaStats["Std. Error"]
+
+## recalculating test stats and p values
 bhat/sd(betaBoot$t)
 2*pnorm(-abs(bhat/sd(betaBoot$t)))
 
-## HC standard errors 
+## HC  robust standard errors 
 library(sandwich)
 library(lmtest)
 VHC = vcovHC(carsreg, "HC0")
@@ -227,7 +228,7 @@ hcstats <- coeftest(carsreg, vcov = VHC)
 round(hcstats["log(mileage)",], 5)
 
 ## plot them all
-pdf("SoCalCarsElasticity.pdf", width=4, height=4)
+#pdf("SoCalCarsElasticity.pdf", width=4, height=4)
 hist(betaBoot$t, freq=FALSE, ylim=c(0,25), border="grey90",
      main="", xlab="price-mileage elasticity")
 bhatse <- betaStats["Std. Error"]
@@ -237,7 +238,7 @@ lines(grid, dnorm(grid, bhat, hcstats["log(mileage)","Std. Error"]),
       col="orange", lwd=1.5)
 legend("topright", legend=c("Basic","Bootstrap","HC"), 
        col=c("navy","grey","orange"), pch=15, bty="n")
-dev.off()
+#dev.off()
 
 ### clustered standard errors. 
 CarsByDealer <- split(Cars, Cars$dealer)
@@ -259,11 +260,13 @@ round(clstats["log(mileage)",], 5)
 ##############
 
 ### confidence intervals
-# using standard errors
+# using theoretical standard errors
 bhat + c(-1,1)*1.96*sd(betaBootB$t)
 
+## distribution of bootstrapped statistics
 quantile(betaBootB$t,c(0.025, 0.975))
 
+## look at the distribution of errors
 betaErrors <- betaBootB$t - bhat
 quantile(bhat - betaErrors,c(.025,.975))
 
@@ -296,19 +299,11 @@ quantile(phat-priceErrors, c(.025,.975))
 # CI on original parameter sample
 quantile(priceBoot$t, c(.025,.975))
 
-# another bias corrected interval, this time on the elasticity
-ebhat <- exp(bhat)
-ebhatBoot <- exp(betaBoot$t)
-ebhatErrors <- ebhatBoot - ebhat
-mean(ebhatErrors)
-quantile(ebhat - ebhatErrors,c(.025,.975))
-quantile(ebhatBoot,c(.025,.975))
-
 # same things with the getCI function
 getCI <- function(bo, p=c(.025,.975)) quantile(2*bo$t0 - bo$t, p)
 getCI(priceBoot)
-### parametric bootstrap
 
+### parametric bootstrap
 CarsSim <- function(data, mle){
     n <- nrow(data)
     Ey <- predict(mle, data)
@@ -340,12 +335,7 @@ CarsSimNCV <- function(data, mle){
     sim = "parametric", ran.gen = CarsSimNCV, mle=carsreg,
     parallel="snow", ncpus=detectCores()) )
 
-
-betaBoot
-
-#############################
-
-
+#####
 ## Bayesian estimation of generalized linear models
 # You can install with install.packages("arm")
 library(arm)
@@ -353,7 +343,7 @@ library(arm)
 # Bayesian GLM
 carsregBayes <- bayesglm(log(price) ~ log(mileage) + make + 
                            year + certified + body + city, data=Cars)
-summary(carsregBayes)$coef["log(mileage"]
+summary(carsregBayes)
 
 # Simulate posterior distribution for our Bayesian example
 posterior <- coef(sim(carsregBayes))
@@ -361,11 +351,11 @@ posterior <- coef(sim(carsregBayes))
 bhatse <- betaStats["Std. Error"]
 grid <- seq(bhat-6*bhatse,bhat+6*bhatse,length=100)
 
-pdf("SoCalCarsBayes.pdf", width=4, height=4)
+#pdf("SoCalCarsBayes.pdf", width=4, height=4)
 plot(grid, dnorm(grid, bhat, bhatse), xlim=range(grid), ylim=c(0,30), type="l",
     xlab="price-mileage elasticty", ylab="density", main="", bty="n", lwd=1.5, col="navy")
 lines(density(betaBoot$t), col="grey50",  lwd=1.5)
 lines(density(posterior[,"log(mileage)"]), col=2,  lwd=1.5)
 legend("topright", legend=c("Basic","Bootstrap","Bayesian"), 
        col=c("navy","grey50","red"), pch=15, bty="n")
-dev.off()
+#dev.off()
