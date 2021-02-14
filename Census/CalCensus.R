@@ -16,14 +16,14 @@ rhval <- lhval - gphval$mean
 summary(glm(rhval ~ rinc))
 
 ### plots!  
-png('CalIncFit.png', width=4, height=5, units="in", res=720)
+#png('CalIncFit.png', width=4, height=5, units="in", res=720)
 plot(linc, gpinc$mean, col=rgb(0,0,.1,.25), pch=16, bty="n", 
 	xlab="log Median Income", ylab="GP fitted value")
-dev.off()
-png('CalHValFit.png', width=4, height=5, units="in", res=720)
+#dev.off()
+#png('CalHValFit.png', width=4, height=5, units="in", res=720)
 plot(lhval, gphval$mean, col=rgb(.1,0,0,.25), pch=16, bty="n", 
 	xlab="log Median Home Value", ylab="GP fitted value")
-dev.off()
+#dev.off()
 
 # maps package is fun.  Check out fields for more 
 hvalBreaks <- quantile(ca$medianHouseValue,(0:20)/20)
@@ -35,37 +35,35 @@ incCut <- cut(ca$medianIncome,breaks=incBreaks)
 incCols <- heat.colors(20)[as.numeric(incCut)]
 
 library(maps)
-png('CalHVal.png', width=4, height=5, units="in", res=720)
+#png('CalHVal.png', width=4, height=5, units="in", res=720)
 map('state', 'california') 
 points(ca[,1:2], col=hvalCols, pch=20)
 legend("topright", title="Home Value",
 	legend=c("15k","120k","180k","265k","500k"),
 	fill=heat.colors(5), bty="n")
-dev.off()
+#dev.off()
 
-png('CalInc.png', width=4, height=5, units="in", res=720)
+#png('CalInc.png', width=4, height=5, units="in", res=720)
 map('state', 'california') 
 points(ca[,1:2], col=incCols, pch=20)
 legend("topright", title="Income",
 	legend=c("5k","26k","35k","47k","150k"),
 	fill=heat.colors(5), bty="n")
-dev.off()
+#dev.off()
 
 ######
 # Forests
-library(tree)
-library(ranger)
-library(maps)
 ca <- read.csv("CalCensus.csv")
 
 ## First, lets do it with CART
 ## no need for interactions; the tree finds them automatically
+library(tree)
 catree <- tree(log(medianHouseValue) ~ ., data=ca) 
 
-png('CalTree.png', width=5, height=10, units="in", res=720)
+#png('CalTree.png', width=5, height=10, units="in", res=720)
 plot(catree, col="grey50")
 text(catree)
-dev.off()
+#dev.off()
 
 ## looks like the most complicated tree is best! 
 cvca <- cv.tree(catree)
@@ -76,8 +74,9 @@ plot(cvca)
 ## limit the number of trees and the minimum tree size for speed
 ## also run on 4 cores if you've got them
 ## add importance so that we store the variable importance information
+library(ranger)
 carf <- ranger(log(medianHouseValue) ~ ., data=ca, num.threads=4,
-  write.forest=TRUE, num.tree=200, importance="impurity")
+               num.tree=200, importance="impurity")
 ## variable importance 
 sort(carf$variable.importance, decreasing=TRUE)
 
@@ -88,8 +87,8 @@ yhattree <- predict(catree, ca)
 yhatrf <- predict(carf, ca)$predictions
 rt <- log(ca$medianHouseValue) - yhattree
 rr <- log(ca$medianHouseValue) - yhatrf
-
-png('CalTreeResiduals.png', width=8, height=4, units="in", res=720)
+library(maps)
+#png('CalTreeResiduals.png', width=8, height=4, units="in", res=720)
 par(mfrow=c(1,2), mai=c(.1,.1,.1,.1), omi=c(0,0,0,0))
 map('state', 'california') 
 points(ca[,1:2], col=c("red","black")[1 + (rt>0)], cex=abs(rt))
@@ -99,7 +98,7 @@ points(ca[,1:2], col=c("red","black")[1 + (rr>0)], cex=abs(rr))
 mtext("forest", line=1)
 legend("topright", title="residuals", bty="n", pch=1, 
 	pt.cex=c(2,1,1,2), col=c("black","black","red","red"), legend=c(2,1, -1,-2))
-dev.off()
+#dev.off()
 
 ## out of sample test run
 MSE <- list(CART=NULL, RF=NULL)
@@ -123,6 +122,6 @@ for(i in 1:10){
 # results
 lapply(MSE, mean)
 # plot
-png('CalOOS.png', width=4, height=5, units="in", res=720)
-boxplot(log(as.data.frame(MSE)), col="dodgerblue", xlab="model", ylab="MSE")
-dev.off()
+#png('CalOOS.png', width=5, height=5, units="in", res=720)
+boxplot(as.data.frame(MSE), col="dodgerblue", xlab="model", ylab="MSE")
+#dev.off()

@@ -12,45 +12,53 @@ names(cps)[15] <- "pexp"
 # we will transform this from log nominal wage (lnw) and rename
 cps$lnw <- exp(cps$lnw)
 names(cps)[1] <- "hrwage"
-head(cps)
+head(cps,3)
 
 library(tree)
 pexptree <- tree(hrwage ~ pexp + female, data=cps, mindev=1e-3)
 pexptree
-png('pexpTree.png', width=4, height=5, units="in", res=720)
+#png('pexpTree.png', width=4, height=5, units="in", res=720)
 plot(pexptree, col="grey50")
 text(pexptree)
-dev.off()
+#dev.off()
 
+## produce the plot of wage surfaces
 grid <- 0:44
 fpred <- predict(pexptree, data.frame(female=1, pexp=grid))
 mpred <- predict(pexptree, data.frame(female=0, pexp=grid))
-png('pexpPred.png', width=4, height=5, units="in", res=720)
+#png('pexpPred.png', width=4, height=5, units="in", res=720)
 plot(grid, mpred, lwd=2, type="l", bty="n", 
 	xlim=c(0,46), ylim=range(c(fpred,mpred))+c(-1,1),
 	ylab="expected hourly wage", xlab="potential experience")
 lines(grid, fpred, col=2, lwd=2)
 legend("topright", fill=1:2, border=8, legend=c("male","female"), bty="n")
-dev.off()
+#dev.off()
+
+## binary response
+probtree <- tree(factor(hrwage>15) ~ pexp + female, data=cps)
+probtree
+
+
 
 wagetree <- tree(hrwage ~ ., data=cps, mindev=1e-3)
 wagetree
-png('wageTree.png', width=10, height=5, units="in", res=720)
+#png('wageTree.png', width=10, height=5, units="in", res=720)
 plot(wagetree, col="gray50")
 text(wagetree)
-dev.off()
+#dev.off()
 
 ## pruning and CV
 cvwt <- cv.tree(wagetree, K=10)
-png('wageCVdev.png', width=4, height=5, units="in", res=720)
+
+#png('wageCVdev.png', width=4, height=5, units="in", res=720)
 plot(cvwt$size, cvwt$dev, xlab="size", ylab="oos deviance", pch=21, bg="lightblue", bty="n")
-dev.off()
+#dev.off()
 
 wagetreecut <- prune.tree(wagetree, best=5)
-png('wageTreeCut.png', width=4, height=5, units="in", res=720)
+#png('wageTreeCut.png', width=4, height=5, units="in", res=720)
 plot(wagetreecut, col="grey50")
 text(wagetreecut)
-dev.off()
+#dev.off()
 
 ## random forest and variable importance
 library(ranger)
@@ -84,9 +92,10 @@ yhat <- predict(yrf, cps[,-1])
 ytil <- cps$hrwage-yhat$predictions
 
 # ATE
-lm(ytil ~ dtil)
+glm(ytil ~ dtil-1)
 
-# HTE
+# HTE  (not in book, but good exercise)
+library(gamlr)
 dw <- cbind(dtil=dtil, dtil*cps[,-(1:2)])
 htereg <- gamlr(dw, ytil)
 gam <- coef(htereg)[-1,]
