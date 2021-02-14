@@ -123,5 +123,5 @@ for(i in 1:10){
 lapply(MSE, mean)
 # plot
 #png('CalOOS.png', width=5, height=5, units="in", res=720)
-boxplot(as.data.frame(MSE), col="dodgerblue", xlab="model", ylab="MSE")
+boxplot(as.data.frame(MSE), col="dodgerblue", xlab="", ylab="MSE")
 #dev.off()

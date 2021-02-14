@@ -94,10 +94,6 @@ ytil <- cps$hrwage-yhat$predictions
 # ATE
 glm(ytil ~ dtil-1)
 
-# HTE  (not in book, but good exercise)
-library(gamlr)
-dw <- cbind(dtil=dtil, dtil*cps[,-(1:2)])
-htereg <- gamlr(dw, ytil)
-gam <- coef(htereg)[-1,]
-gam[gam!=0]
-
+# HTE  
+pefac <- cut(cps$pexp, c(0,10,30,Inf),right=FALSE)
+coef(glm(ytil ~ dtil*pefac - pefac - dtil, data=cps))
