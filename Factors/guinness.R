@@ -13,13 +13,10 @@ gPCA <- prcomp(g, center=F)
 bPCA <- prcomp(b, center=F)
 
 rgbPCA <- list(rPCA, gPCA, bPCA)
-
 pcaIMG <- sapply(rgbPCA, 
-			function(color) {
-    			comprIMG <- color$x[,1:25] %*% t(color$rotation[,1:25])},
-    			simplify="array")
-dim(pcaIMG)
-dim(guinness)
+	function(color) {
+    	comprIMG <- color$x[,1:25] %*% t(color$rotation[,1:25])},
+    	simplify="array")
 
 for (i in c(3,25,75,150,500)) {
   pcaIMG <- sapply(rgbPCA, function(j) {

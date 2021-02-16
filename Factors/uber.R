@@ -11,9 +11,9 @@ for(i in 1:length(x1)){
 	for(j in 1:length(x1)){
 		f[i,j]<-dmvnorm(cbind(x1[i],x2[j]), mean=mu,sigma=sigma)
 }}
-#png('bivariateNorm.png', width=6, height=5, units="in", res=720)
-persp(x1, x2, f,col="green",xlab="",ylab="",zlab="density")
-#dev.off()
+png('bivariateNorm.png', width=6, height=5, units="in", res=720)
+persp(x1, x2, f,col="green",xlab="x1",ylab="x2",zlab="density", theta=-30)
+dev.off()
 
 ### UBER: K-means
 uber <- read.csv("uber.csv")
@@ -26,7 +26,7 @@ hubs$centers
 ## plot the centers (hubs)
 library(maps)
 #png('uberhubs.png', width=8, height=4, units="in", res=720)
-par(mai=c(0,0,0,0),omi=c(0,0,0,0))
+#par(mai=c(0,0,0,0),omi=c(0,0,0,0))
 map('county', c('new york','new jersey'), col="grey60",
 	xlim=c(-74.4,-73.1), ylim=c(40.4,41))
 points(hubs$centers, pch=21, bg=2)
