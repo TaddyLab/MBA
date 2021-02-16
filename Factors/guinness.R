@@ -12,13 +12,24 @@ rPCA <- prcomp(r, center=F)
 gPCA <- prcomp(g, center=F)
 bPCA <- prcomp(b, center=F)
 
-rgbPCA <- list(rPCA, gPCA, bPCA)
-pcaIMG <- sapply(rgbPCA, 
-	function(color) {
-    	comprIMG <- color$x[,1:25] %*% t(color$rotation[,1:25])},
-    	simplify="array")
+K <- 25
+rW <- predict(rPCA)[,1:K]
+gW <- predict(gPCA)[,1:K]
+bW <- predict(bPCA)[,1:K]
+dim(rW)
 
-for (i in c(3,25,75,150,500)) {
+rPhi <- rPCA$rotation[,1:K]
+gPhi <- gPCA$rotation[,1:K]
+bPhi <- bPCA$rotation[,1:K]
+
+newPic <- array(
+	c(rW%*%t(rPhi), gW%*%t(gPhi), bW%*%t(bPhi)), 
+	dim=c(960,720,3) )
+writeJPEG(newPic, "guinnessPCA.jpg")
+
+## print the picture for a set of X
+rgbPCA <- list(rPCA, gPCA, bPCA)
+for (i in c(3,25,75,150,300)) {
   pcaIMG <- sapply(rgbPCA, function(j) {
     comprIMG <- j$x[,1:i] %*% t(j$rotation[,1:i])
   }, simplify = 'array')
