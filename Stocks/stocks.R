@@ -57,10 +57,11 @@ abline(h=0, lty=2, col=8)
 text(ab, labels=rownames(ab), cex=bigs[,2]/350, col="navy") 
 
 ## write the returns
-isna <- colSums(is.na(RET))
-aRet <- RET - tbills[,2]
+aRet <- RET
+isna <- colSums(is.na(aRet))
 aRet <- aRet[,isna<40]
-rownames(aRet) <- aRet$month
+rownames(aRet) <- format(aRet$month, "%Y-%m")
 aRet <- aRet[,-1]
+aRet <- aRet - tbills[,2]
 aRet <- cbind(SP500=SNP[,2],aRet)
 write.csv(aRet, "returns.csv")
