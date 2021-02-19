@@ -9,7 +9,7 @@ dev.off()
 
 png('amesScatter.png', width=4.5, height=4.5, units="in", res=720)
 plot(ames$Lot.Area, ames$SalePrice, 
-	xlab="Lot Area (SF)", 
+	xlab="Lot Area (SF)", log=("xy"),
 	ylab="Home Sale Price", col=rgb(1,.2,.2,.2), pch=20)
 dev.off()
 

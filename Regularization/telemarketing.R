@@ -103,7 +103,7 @@ dev.off()
 
 ### uncertainty quantification
 ## simulation function
-p0 <- drop( predict(fit,x, type="response") )
+p0 <- drop( predict(fit,x, type="response", select=100) )
 getBoot <- function(b){
 	yb <- rbinom(nrow(x),size=1,prob=p0)
 	fitb <- gamlr(x, yb, family="binomial")
