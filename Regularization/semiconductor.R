@@ -1,0 +1,146 @@
+
+SC <- read.csv("semiconductor.csv")
+
+## full model
+full <- glm(fail ~ ., data=SC, family=binomial)
+
+## deviance and R2
+full$deviance
+full$null.deviance
+1 - full$deviance/full$null.deviance
+
+## grab p-values
+pvals <- summary(full)$coef[-1,4] #-1 to drop the intercept
+## plot them: it looks like we have some signal here
+png('scPval.png', width=5, height=5, units="in", res=720)
+hist(pvals, xlab="p-value", main="", col="lightblue")
+dev.off()
+
+## running the BH FDR procedure
+## At 10% FDR, we get 25 `signif'
+pvals <- sort(pvals[!is.na(pvals)])
+J <- length(pvals)
+k <- rank(pvals, ties.method="min")
+q=0.1
+( alpha <- max(pvals[ pvals<= (q*k/(J+1)) ]) )
+
+png('scFDR.png', width=5, height=5, units="in", res=720)
+plot(pvals, log="xy", xlab="order", main=sprintf("FDR of %g",q),
+   ylab="p-value", bty="n", col=c(8,2)[(pvals<=alpha) + 1], pch=20)
+lines(1:J, q*(1:J)/(J+1))
+dev.off()
+
+
+## Re-run a cut regression using only these 25
+signif <- which(pvals < 0.0122)
+cut <- glm(fail ~ ., data=SC[,c("fail", names(signif))], family="binomial")
+1 - cut$deviance/cut$null.deviance # new in-sample R2
+
+## Out of sample prediction experiment
+# setup the experiment
+n <- nrow(SC) # the number of observations
+K <- 10 # the number of `folds'
+# create a vector of fold memberships (random order)
+set.seed(1)
+foldid <- rep(1:K,each=ceiling(n/K))[sample(1:n)]
+foldid[1:20]
+# use a for loop to run the experiment
+fulldev <- cutdev <- nulldev <- rep(NA,K) 
+for(k in 1:K){ 
+	train <- which(foldid!=k) # train on all but fold `k'
+		
+	## fit the two regressions
+	cuts <- c("fail",names(signif))
+	rfull <- glm(fail~., data=SC, subset=train, family=binomial)
+	rcut <- glm(fail~., data=SC[,cuts], subset=train, family=binomial)
+
+	## get predictions: type=response so we have probabilities
+	pfull <- predict(rfull, newdata=SC[-train,], type="response")
+	pcut <- predict(rcut, newdata=SC[-train,], type="response")
+
+	## calculate OOS deviances
+	y <- SC$fail[-train]
+	ybar <- mean(y)
+	fulldev[k] <- -2*sum( y*log(pfull) + (1-y)*log(1-pfull) ) 
+	cutdev[k] <- -2*sum( y*log(pcut) + (1-y)*log(1-pcut) ) 
+	nulldev[k] <- -2*sum( y*log(ybar) + (1-y)*log(1-ybar) ) 
+
+	## print progress
+	cat(k, " ")
+}
+
+## resulting deviance
+round(fulldev)
+round(cutdev)
+R2 <- data.frame(
+	full = 1 - fulldev/nulldev,
+	cut = 1 - cutdev/nulldev )
+colMeans(R2) # WOW!  Full model really sucks.
+
+## plot it in plum
+png('scOOS.png', width=5, height=5, units="in", res=720)
+boxplot(R2, col="plum", ylab="R2", xlab="model", bty="n")
+dev.off()
+
+
+## A forward stepwise procedure
+# null model
+null <- glm(fail~1, data=SC)
+# forward stepwise: it takes a long time!
+system.time(fwd <- step(null, scope=formula(full), dir="forward"))
+length(coef(fwd)) # chooses around 70 coef
+
+#### lasso (glmnet does L1-L2, gamlr does L0-L1)
+library(gamlr) 
+# for gamlr, and most other functions, you need to create your own numeric
+# design matrix.  We'll do this as a sparse `simple triplet matrix' using 
+# the sparse.model.matrix function.
+scx <- sparse.model.matrix(fail ~ ., data=SC)[,-1] # do -1 to drop intercept!
+# here, we could have also just done x <- as.matrix(SC[,-1]).
+# but sparse.model.matrix is a good way of doing things if you have factors.
+scy <- SC$fail # pull out `y' too just for convenience
+
+# fit a single lasso
+sclasso <- gamlr(scx, scy, family="binomial")
+plot(sclasso) # the ubiquitous path plot
+
+# AICc selected coef
+scbeta <- coef(sclasso) 
+log(sclasso$lambda[which.min(AICc(sclasso))])
+sum(scbeta!=0) # chooses 30 (+intercept) @ log(lambda) = -4.5
+
+# alt: BIC selected coef
+BICseg <- which.min(BIC(sclasso))
+scb.bic <- coef(sclasso, s=BICseg)
+sum(scb.bic!=0) # sets all coef to zero: just the intercept!
+
+## cross validated lasso (verb just prints progress)
+sccvl <- cv.gamlr(scx, scy, family="binomial", verb=TRUE)
+plot(sccvl, bty="n")
+
+## CV min deviance selection
+scb.min <- coef(sccvl, select="min")
+log(sccvl$lambda.min)
+sum(scb.min!=0) ## around 65-70 with log(lam) -4.8 (its random!)
+
+## CV 1se selection (the default)
+scb.1se <- coef(sccvl)
+log(sccvl$lambda.1se)
+sum(scb.1se!=0) ## usually selects all zeros (just the intercept)
+
+## comparing AICc, BIC, and the CV error
+plot(sccvl, bty="n")
+lines(log(sclasso$lambda),AICc(sclasso)/n, col="green", lwd=2)
+lines(log(sclasso$lambda),BIC(sclasso)/n, col="maroon", lwd=2)
+legend("top", fill=c("blue","green","maroon"),
+	legend=c("CV","AICc","BIC"), bty="n")
+
+## BIC, AIC, AICc on full vs cut (they all prefer cut)
+BIC(full)
+BIC(cut)
+
+AIC(full)
+AIC(cut)
+
+AICc(full)
+AICc(cut)

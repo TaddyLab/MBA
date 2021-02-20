@@ -139,3 +139,31 @@ coef( glm( ytil ~ dtil -1 ) )
 ## same thing with an intercept
 coef( glm( ytil ~ dtil) ) 
 
+
+############################
+### regularization chapter
+# Sparse Model Matrices
+oj<-read.csv("oj.csv",strings=T)
+modMat<-model.matrix(~log(price)+brand,data=oj)
+modMat[c(100,200,300),] 
+
+library(gamlr)
+ojdf <-naref(oj)
+ojdf[c(100,200,300),"brand"]
+modMatAllLevs<-model.matrix(~log(price)+brand,data=ojdf)[,-1] 
+modMatAllLevs[c(100,200,300),]
+
+# make it a sparse representation
+library(Matrix)
+modMatSparse<-sparse.model.matrix(~log(price)+brand,data=ojdf)[,-1]
+modMatSparse[c(100,200,300),]
+
+# Simple triplet matrix
+rowNum<-c(1,3,2)
+colNum<-c(1,1,2)
+non0data<-c(-4,5,10)
+sparseMat<-sparseMatrix(i=rowNum,j=colNum,x=non0data,
+     dims=c(3,2),
+     dimnames=list(c("r1","r2","r3"),c("c1","c2")))
+sparseMat
+str(sparseMat)
