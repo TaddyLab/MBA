@@ -6,22 +6,22 @@ head(oj)
 
 # create some colors for the brands then plot
 brandcol <- c("green","red","gold")
-png('ojBoxplots.png', width=3, height=5, units="in", res=720)
+#png('ojBoxplots.png', width=3, height=5, units="in", res=720)
 boxplot(price ~ brand, data=oj, col=brandcol, bty="n", horizontal=TRUE, xaxt='n')
 axis(1, at=c(1,2,3,4))
-dev.off()
+#dev.off()
 
-png('ojScatterplot.png', width=3, height=5, units="in", res=720)
+#png('ojScatterplot.png', width=3, height=5, units="in", res=720)
 plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
-dev.off()
-png('ojRawScatterplot.png', width=3, height=5, units="in", res=720)
+#dev.off()
+#png('ojRawScatterplot.png', width=3, height=5, units="in", res=720)
 plot(sales ~ price, data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
-dev.off()
+#dev.off()
 
 oj$featured <- factor(oj$feat==1)
-png('OJsales.png', width=5, height=5, units="in", res=720)
+#png('OJsales.png', width=5, height=5, units="in", res=720)
 plot(brand ~ featured, data=oj, col=rev(brandcol), bty="n", cex=.5)
-dev.off()
+#dev.off()
 
 # simple log-log plus brand regression
 fit<-glm(log(sales) ~ brand + log(price),data=oj)  
@@ -94,14 +94,14 @@ mosaicplot(salestable,col=brandcol)
 
 # fit plots and R^2 
 # (the 'bty="n"' option removes boxes around your plot)
-png('ojFittedVSy.png', width=5, height=5, units="in", res=720)
+#png('ojFittedVSy.png', width=5, height=5, units="in", res=720)
 plot(log(oj$sales) ~ fit3way$fitted, col=brandcol[oj$brand], 
 	bty="n", ylim=range(c(fit3way$fitted,log(oj$sales))),
 	xlim=range(c(fit3way$fitted,log(oj$sales))),
 	ylab="observed log(sales)", xlab="fitted log(sales)")
 abline(a=0,b=1)#  add a line with slope 1, intercept 0
 legend("topleft",legend=levels(oj$brand),fill=brandcol, bty="n")
-dev.off()
+#dev.off()
 
 ( SST <- sum( (log(oj$sales) - mean(log(oj$sales)))^2 ) )
 ( SSE <- sum( ( log(oj$sales) - fit3way$fitted )^2 ) )
@@ -155,8 +155,8 @@ modMatAllLevs[c(100,200,300),]
 
 # make it a sparse representation
 library(Matrix)
-modMatSparse<-sparse.model.matrix(~log(price)+brand,data=ojdf)[,-1]
-modMatSparse[c(100,200,300),]
+xOJ<-sparse.model.matrix(~log(price)+brand,data=ojdf)[,-1]
+xOJ[c(100,200,300),]
 
 # Simple triplet matrix
 rowNum<-c(1,3,2)
@@ -167,3 +167,17 @@ sparseMat<-sparseMatrix(i=rowNum,j=colNum,x=non0data,
      dimnames=list(c("r1","r2","r3"),c("c1","c2")))
 sparseMat
 str(sparseMat)
+
+library(gamlr)
+fitOJ <- gamlr(x=xOJ, y=log(ojdf$sales))
+png('ojLasso.png', width=4.5, height=4.5, units="in", res=720)
+plot(fitOJ)
+dev.off()
+
+names(fitOJ)
+
+oj$brand <- relevel(ojdf$brand, "minute.maid")
+glm(log(sales) ~ log(price) + brand, data=oj)
+
+fitOJfree <- gamlr(x=xOJ, y=log(ojdf$sales), free="log(price)")
+fitOJfree$beta[,c(1:2,99:100)]

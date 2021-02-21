@@ -11,7 +11,7 @@ tele <- bank[,c("age","job","marital","education","default",
 
 write.csv(tele, "telemarketing.csv", row.names=FALSE)
 
-Source is 
+Source is:
 
 https://archive.ics.uci.edu/ml/datasets/bank+marketing
 

@@ -1,4 +1,5 @@
-## subset of data downloaded from http://jse.amstat.org/v19n3/decock/AmesHousing.xls
+## data downloaded from http://jse.amstat.org/v19n3/decock/AmesHousing.xls
+## we removed the property IDs and MS.SubClass for readability but kept all other variables.  Students can create variables like MS.SubClass through feature engineering and interactions.
 ## this description is from http://jse.amstat.org/v19n3/decock/DataDocumentation.txt
 ## Citation:
 @article{de2011ames,

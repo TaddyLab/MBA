@@ -90,57 +90,9 @@ null <- glm(fail~1, data=SC)
 system.time(fwd <- step(null, scope=formula(full), dir="forward"))
 length(coef(fwd)) # chooses around 70 coef
 
-#### lasso (glmnet does L1-L2, gamlr does L0-L1)
+#### lasso 
 library(gamlr) 
-# for gamlr, and most other functions, you need to create your own numeric
-# design matrix.  We'll do this as a sparse `simple triplet matrix' using 
-# the sparse.model.matrix function.
-scx <- sparse.model.matrix(fail ~ ., data=SC)[,-1] # do -1 to drop intercept!
-# here, we could have also just done x <- as.matrix(SC[,-1]).
-# but sparse.model.matrix is a good way of doing things if you have factors.
-scy <- SC$fail # pull out `y' too just for convenience
-
-# fit a single lasso
-sclasso <- gamlr(scx, scy, family="binomial")
-plot(sclasso) # the ubiquitous path plot
-
-# AICc selected coef
-scbeta <- coef(sclasso) 
-log(sclasso$lambda[which.min(AICc(sclasso))])
-sum(scbeta!=0) # chooses 30 (+intercept) @ log(lambda) = -4.5
-
-# alt: BIC selected coef
-BICseg <- which.min(BIC(sclasso))
-scb.bic <- coef(sclasso, s=BICseg)
-sum(scb.bic!=0) # sets all coef to zero: just the intercept!
-
-## cross validated lasso (verb just prints progress)
-sccvl <- cv.gamlr(scx, scy, family="binomial", verb=TRUE)
-plot(sccvl, bty="n")
-
-## CV min deviance selection
-scb.min <- coef(sccvl, select="min")
-log(sccvl$lambda.min)
-sum(scb.min!=0) ## around 65-70 with log(lam) -4.8 (its random!)
-
-## CV 1se selection (the default)
-scb.1se <- coef(sccvl)
-log(sccvl$lambda.1se)
-sum(scb.1se!=0) ## usually selects all zeros (just the intercept)
-
-## comparing AICc, BIC, and the CV error
-plot(sccvl, bty="n")
-lines(log(sclasso$lambda),AICc(sclasso)/n, col="green", lwd=2)
-lines(log(sclasso$lambda),BIC(sclasso)/n, col="maroon", lwd=2)
-legend("top", fill=c("blue","green","maroon"),
-	legend=c("CV","AICc","BIC"), bty="n")
-
-## BIC, AIC, AICc on full vs cut (they all prefer cut)
-BIC(full)
-BIC(cut)
-
-AIC(full)
-AIC(cut)
-
-AICc(full)
-AICc(cut)
+fitSC <- gamlr(x=SC[,-1], y=SC[,1], family="binomial")
+#png('scLasso.png', width=4.5, height=4.5, units="in", res=720)
+plot(fitSC)
+#dev.off()
