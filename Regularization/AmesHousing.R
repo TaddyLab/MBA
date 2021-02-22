@@ -74,6 +74,7 @@ fitAmes$beta[
 
 # IC model selection
 bAmes <- coef(fitAmes) ## the coefficients selected under AICc
+head(bAmes)
 ## a few examples
 bAmes <- bAmes[-1,] # drop intercept and remove sparse matrix formatting
 sum(bAmes!=0)
@@ -81,13 +82,19 @@ head(sort(bAmes),4) ## big decreaser
 tail(sort(bAmes),4) ## big increaser
 
 ## lot size, frontage, and above ground living area
-bAmes[c("Lot.Area", "Lot.Frontage.x", "Lot.Frontage.miss")]
+bAmes[
+ c("Overall.Qual","Lot.Area","Lot.Frontage.x","Lot.Frontage.miss")]
+
+which.min(AICc(fitAmes))
+fitAmes$lambda[62]
 
 # other IC selections
-bAmesBIC <- coef(fitAmes, select=which.min(BIC(fitAmes)))[-1,] ## and BIC instead
-bAmesAIC <- coef(fitAmes, select=which.min(AIC(fitAmes)))[-1,] ## AIC instead
-sum(bAmes!=0)
+(bicsel <- which.min(BIC(fitAmes)))
+bAmesBIC <- coef(fitAmes, select=bicsel)[-1,] ## and BIC 
 sum(bAmesBIC!=0)
+
+(aicsel <- which.min(AIC(fitAmes)))
+bAmesAIC <- coef(fitAmes, select=aicsel)[-1,] ## and AIC 
 sum(bAmesAIC!=0)
 
 # prediction
@@ -95,20 +102,31 @@ sum(bAmesAIC!=0)
 drop(yhat)
 exp(drop(yhat))
 
-exp(drop( predict(fitAmes, xAmes[c(1,11),], 
-				select=which.min(BIC(fitAmes))) ))
-
-
+### cross validation
 set.seed(0)
-cvfitAmes <- cv.gamlr(x, y, verb=TRUE, lmr=1e-4)
+cvfitAmes <- cv.gamlr(xAmes, yAmes, verb=TRUE, lmr=1e-4)
+
+
+cvfitAmes$seg.min
+cvfitAmes$lambda.min
+log(cvfitAmes$lambda.min)
+
+cvfitAmes$seg.1se
+cvfitAmes$lambda.1se
+log(cvfitAmes$lambda.1se)
+
+## OOS R2 at lambda100
+1 - cvfitAmes$cvm[100]/cvfitAmes$cvm[1]
+
+## extract some coefficients
 bAmesCV1se <- coef(cvfitAmes)[-1,] ## 1se rule; see ?cv.gamlr
 bAmesCVmin <- coef(cvfitAmes, select="min")[-1,] ## min cv selection
-cbind(bAmesCV1se,bAmesCVmin)[c("Lot.Area","Lot.Frontage.x"),]
 sum(bAmesCV1se!=0)
 sum(bAmesCVmin!=0)
+cbind(bAmesCV1se,bAmesCVmin)[c("Lot.Area","Lot.Frontage.x"),]
 
 ## plot it
-png('amesCV.png', width=5, height=5, units="in", res=720)
+png('amesCV.png', width=4.5, height=4.5, units="in", res=720)
 plot(cvfitAmes)
 dev.off()
 
@@ -121,9 +139,9 @@ log(cvfitAmes$lambda.1se)
 
 ## plot CV results and the various IC
 ll <- log(fitAmes$lambda) ## the sequence of lambdas
-n <- nrow(x)
+n <- nrow(xAmes)
 
-png('amesSelection.png', width=5, height=5, units="in", res=720)
+png('amesSelection.png', width=4.5, height=4.5, units="in", res=720)
 plot(ll, AIC(fitAmes)/n, bty="n",
 	xlab="log lambda", ylab="IC/n", type="l", lwd=2, col="orange")
 abline(v=ll[which.min(BIC(fitAmes))], col="green", lty=2, lwd=2)
@@ -136,7 +154,7 @@ legend("topleft", bty="n",
 dev.off()
 
 ## all metrics, together in a path plot.
-png('amesICCV.png', width=5, height=5, units="in", res=720)
+png('amesICCV.png', width=4.5, height=4.5, units="in", res=720)
 plot(fitAmes, col="grey", select=FALSE)
 abline(v=ll[which.min(AICc(fitAmes))], col="black", lty=2, lwd=2)
 abline(v=ll[which.min(AIC(fitAmes))], col="orange", lty=3, lwd=2)
@@ -150,20 +168,26 @@ dev.off()
 
 ### uncertainty quantification
 ## grab a variable
-cvgetB <- function(vname){
-	fitAmesb <- cv.gamlr(x, y, obsweight=rexp(nrow(x)), lmr=1e-4)
-	coef(fitAmesb, select="min")[vname,]
-}
-cvgetB("Lot.Area")
-( cvt0 <- coef(cvfitAmes, select="min")["Lot.Area",] )
 
-## run the CV bootstrap
+xnew <- xAmes[c(1,11),]
+yhat0 <- drop( predict(cvfitAmes, xnew, select="min") )
+exp(yhat0)
+
+B <- 100
+yhatB <- matrix(nrow=2, ncol=B)
+
 library(parallel)
 cl <- makeCluster(detectCores())
-clusterExport(cl, c("gamlr","cv.gamlr","x", "y"))
 
-cvt <- parSapply(cl, rep("Lot.Area",100), cvgetB)
+for(b in 1:100){
+	wb <- rexp(nrow(xAmes))
+	fitb <- cv.gamlr(xAmes, yAmes, 
+						 obsweight=wb, lmr=1e-4, cl=cl)
+	yhatB[,b] <- drop(predict(fitb, xnew, select="min"))
+	cat(b, " ")
+}
+
 ## basic CI
-quantile(cvt, c(.025,.975))
+apply(exp(yhatB),1,quantile,probs=c(.025,.975))
 ## bias corrected CI
-quantile(2*cvt0 - cvt, c(.025,.975))
+apply(2*exp(yhat0)-exp(yhatB),1,quantile,probs=c(.025,.975))
