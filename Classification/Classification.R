@@ -2,59 +2,6 @@
 ### Classification
 ###################################
 
-# KNN
-library(MASS)
-data(biopsy)
-str(biopsy)
-
-par(mfrow=c(3,3))
-for(i in 2:10){
-main<-paste("",colnames(biopsy)[i],"")
-par(mai=c(0.3,0.3,0.4,0.3))
-boxplot(biopsy[,i]~biopsy[,11],ylab="",main=main,col=c("blue","deeppink1"),
-	xlab="")
-}
-
-library(class)
-biops<-na.omit(biopsy) #remove rows with missing data
-x <- scale(biops[,2:10]) # scale data
-apply(x,2,sd)
-y <- biops$class
-tstSz<-50
-test <- sample(1:nrow(x),tstSz)
-library(class)
-nearest1 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=1)
-nearest3 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=3)
-nearest5 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=5)
-nearest25 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=25)
-(res<-data.frame(y[test],nearest1,nearest3,nearest5,nearest25)[1:10,])
-sum((as.numeric(y[test])-as.numeric(nearest1))==0)/tstSz
-sum((as.numeric(y[test])-as.numeric(nearest3))==0)/tstSz
-sum((as.ntableumeric(y[test])-as.numeric(nearest5))==0)/tstSz
-sum((as.numeric(y[test])-as.numeric(nearest25))==0)/tstSz
-
-sum((as.numeric(y[test])-as.numeric(nearest3))==1)
-sum((as.numeric(y[test])-as.numeric(nearest3))==-1)
-
-
-# run KNN many times to see how the results differ
-k1<-c(); k3<-c(); k5<-c(); k25<-c();mxMin<-c()
-for(i in 1:10000){
-test <- sample(1:nrow(x),tstSz)
-nearest1 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=1)
-nearest3 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=3)
-nearest5 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=5)
-nearest25 <- knn(train=x[-test,], test=x[test,], cl=y[-test], k=25)
-k1[i]<-sum((as.numeric(y[test])-as.numeric(nearest1))==0)/tstSz
-k3[i]<-sum((as.numeric(y[test])-as.numeric(nearest3))==0)/tstSz
-k5[i]<-sum((as.numeric(y[test])-as.numeric(nearest5))==0)/tstSz
-k25[i]<-sum((as.numeric(y[test])-as.numeric(nearest5))==0)/tstSz
-mxMin[i]<-max(k1[i],k3[i],k5[i],k25[i])-min(k1[i],k3[i],k5[i],k25[i])
-}
-summary(k1);summary(k3);summary(k5);summary(k25)
-summary(mxMin)
-
-
 ## German Credit
 credit <- read.csv("credit.csv",strings=T)
 str(credit)
