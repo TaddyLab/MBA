@@ -29,20 +29,22 @@ x <- sparse.model.matrix( ~ week + upc, data=sales)[,-1]
 dim(x)
 
 # parse the item description text as a bag o' words
-library(tm)
-w <- Corpus(VectorSource(as.character(upc$title)))
-w <- DocumentTermMatrix(w)
-w <- sparseMatrix(i=w$i,j=w$j,x=as.numeric(w$v>0), # convert from stm to Matrix format
-              dims=dim(w),dimnames=list(rownames(upc),colnames(w)))
-
-w[1:5,1:6]
-w[242,w[242,]!=0]
+library(text2vec) 
+ititle <- itoken(as.character(upc$title),
+	tokenizer = word_tokenizer,
+	id=rownames(upc))
+vocab <- create_vocabulary(ititle)
+vectorizer = vocab_vectorizer(vocab)
+w = create_dtm(ititle, vectorizer)
+class(w)
 dim(w)
-## match to the observations
+w[1:5,ncol(w)-0:4]
+w[242,w[242,]!=0]
+
+## store and match to the observations
 wupc <- w
 w <- w[as.character(sales$upc),]
 dim(w)
-
 
 # all together (results are garbage)
 coef( margfit <- glm(log(units) ~ lpoz, data=sales) )

@@ -1,6 +1,4 @@
 # data from https://www.yelp.com/dataset
-setwd("../ModernBusinessAnalytics/examples/YelpDL")
-
 library(keras)
 library(tensorflow) # on some systems you might not need this line
 # you need to wait a beat before running below.
