@@ -168,31 +168,30 @@ dim(tcm)
 mean(tcm==0)
 
 glove = GlobalVectors$new(rank = 20, x_max = 10)
-wGlove = glove$fit_transform(tcm)
-dim(wGlove)
+vGlove = glove$fit_transform(tcm)
+dim(vGlove)
+round(vGlove[1,,drop=FALSE],2)
 
-sims = sim2(x = wGlove, y = wGlove[c("sucks","upscale"),])
-sort(sims[,"sucks"], decreasing = TRUE)[1:5]
+sims = sim2(x = vGlove, y = vGlove["upscale",])
 sort(sims[,"upscale"], decreasing = TRUE)[1:5]
 
-taco <- wGlove["pizza",] - wGlove["pepperoni",] + wGlove["tofu",]
-sims <- sim2(x = wGlove, y = matrix(taco,nrow=1))
+analogy <- vGlove["pizza",] - vGlove["pepperoni",] + vGlove["tofu",]
+sims <- sim2(x = vGlove, y = matrix(analogy,nrow=1))
 sort(sims[,1], decreasing = TRUE)[1:5]
 
 ## 
-all(rownames(wGlove)==colnames(dtm))
+all(rownames(vGlove)==colnames(dtm))
 dim(dtm)
-dim(wGlove)
-length(l)
+dim(vGlove)
 
-# create the review vectors as averages of word vectors for each review
-V = as.matrix( (dtm %*% wGlove)/l )
-V[1,]
+# create the reviev vectors as averages of word vectors for each review
+V = as.matrix( (dtm %*% vGlove)/rowSums(dtm) )
+round(V[1,],2)
 V[is.na(V)] <- 0
 
 # random forest
 vdat <- data.frame(stars=factor(reviews$stars),V)
-gloveRF <- ranger(stars ~ ., data=vdat, num.tree=100, probability=TRUE)
+gloveRF <- ranger(stars ~ ., data=vdat, num.tree=100, prob=TRUE)
 ## misclassification rate
 gloveRF$prediction.error
 

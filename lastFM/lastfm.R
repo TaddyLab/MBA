@@ -18,7 +18,9 @@ fmX[1, fmX[1,]!=0]
 library(text2vec)
 fmLDA <- LDA$new(n_topics = 10)
 fmW <- fmLDA$fit_transform( fmX )
-fmLDA$get_top_words(n = 5, lambda=0.5)
+fmLDA$get_top_words(n = 3, lambda=1)
+fmLDA$get_top_words(n = 3, lambda=0)
+
 
 # install.packages(c("LDAvis","servr"))
 fmLDA$plot()
