@@ -172,7 +172,7 @@ vGlove = glove$fit_transform(tcm)
 dim(vGlove)
 round(vGlove[1,,drop=FALSE],2)
 
-sims = sim2(x = vGlove, y = vGlove["upscale",])
+sims = sim2(x = vGlove, y = vGlove["upscale",,drop=FALSE])
 sort(sims[,"upscale"], decreasing = TRUE)[1:5]
 
 analogy <- vGlove["pizza",] - vGlove["pepperoni",] + vGlove["tofu",]
