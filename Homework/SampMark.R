@@ -1,0 +1,12 @@
+#' ---
+#' title: "A Super Simple Markdown Example"
+#' ---
+
+#' ### "the easier way to write reports"
+
+#' This is how plain text looks.
+#' Below we create an R code block.
+
+mean(c(2,3,4))
+
+#' ***Enjoy!***  
