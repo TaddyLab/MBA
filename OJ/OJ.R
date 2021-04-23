@@ -18,7 +18,7 @@ plot(log(sales) ~ log(price), data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
 plot(sales ~ price, data=oj, col=brandcol[oj$brand], bty="n", cex=.5)
 #dev.off()
 
-oj$featured <- factor(oj$feat==1)
+oj$featured <- factor(oj$ad==1)
 #png('OJsales.png', width=5, height=5, units="in", res=720)
 plot(brand ~ featured, data=oj, col=rev(brandcol), bty="n", cex=.5)
 #dev.off()
@@ -63,7 +63,7 @@ b["log(price)"] + b["log(price):brandtropicana"]
 
 
 # and finally, consider 3-way interactions
-fit3way <- glm(log(sales) ~ log(price)*brand*feat, data=oj)
+fit3way <- glm(log(sales) ~ log(price)*brand*ad, data=oj)
 coef(fit3way)
 
 # making predictions
@@ -73,7 +73,7 @@ coef(fit3way)
 newdata=data.frame(price=rep(2,3), 
 	brand=factor(c("tropicana","minute.maid","dominicks"),
 			levels=levels(oj$brand)),
-	feat=rep(1,3))
+	ad=rep(1,3))
 # predict
 predict(fit3way, newdata=newdata)  ## predicted log units moved
 exp(predict(fit3way, newdata=newdata)) ## predicted # of units moved
@@ -83,12 +83,12 @@ b <- coef(fit3way)
 b["log(price)"] 
 b["log(price)"] + b["log(price):brandminute.maid"]
 b["log(price)"] + b["log(price):brandtropicana"]
-b["log(price)"] + b["log(price):feat"] 
-b["log(price)"] + b["log(price):brandminute.maid"] + b["log(price):feat"] + b["log(price):brandminute.maid:feat"]
-b["log(price)"] + b["log(price):brandtropicana"] + b["log(price):feat"] + b["log(price):brandtropicana:feat"]
+b["log(price)"] + b["log(price):ad"] 
+b["log(price)"] + b["log(price):brandminute.maid"] + b["log(price):ad"] + b["log(price):brandminute.maid:ad"]
+b["log(price)"] + b["log(price):brandtropicana"] + b["log(price):ad"] + b["log(price):brandtropicana:ad"]
 
 # table explaining why ads confounded our brand elasticity estimates
-salestable <- tapply(oj$sales, oj[,c("feat","brand")], sum)
+salestable <- tapply(oj$sales, oj[,c("ad","brand")], sum)
 mosaicplot(salestable,col=brandcol)
 
 
