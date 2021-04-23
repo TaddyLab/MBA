@@ -1,7 +1,18 @@
+#' ---
+#' title: "DC Bikeshare"
+#' ---
 
-### if you don't yet have data.table, run install.packages("data.table")
-library(data.table)
-biketab <- fread("bikeshare.csv")
+#' ### "Homework problems"
+
+#' This is how plain text looks.
+#' Below we create an R code block.
+
+mean(c(2,3,4))
+
+#' ***Enjoy!***  
+
+#' **if you don't yet have data.table, run install.packages("data.table")
+biketab <- read.csv("bikeshare.csv")
 # tell R which are factors
 biketab[, c("dteday", "mnth","season","weekday","hr","weathersit") := list(
   factor(dteday), factor(mnth), factor(season), 
