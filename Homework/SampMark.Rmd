@@ -8,5 +8,6 @@ This is how plain text looks.
 Below we create an R code block.
 ```{R}
 mean(c(1,2,3))
+
 ```
 ***Enjoy!***  
