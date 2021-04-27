@@ -30,6 +30,9 @@ Gama in â€˜Event labeling combining ensemble detectors and background knowledgeâ
 * `dteday`: date  
 * `cnt`: count of total rental bikes  
 
+<br>
+<br>
+
 **Read the bikeshare data into R.  Plot the marginal distribution for the
 count of bike rentals and the conditional count distribution given the hour of day.**
 
@@ -41,4 +44,74 @@ par(mfrow=c(1,2))
 hist(biketab$cnt, xlab="hourly ride count", freq=FALSE, main="")
 boxplot(biketab$cnt ~ biketab$hr, xlab="hour of day", ylab="hourly ride count")
 ```
-**Fit a regression**
+
+<br>
+**Fit a regression for hourly ride count as a function of the weather situation variable.   What is the difference in expected ride counts when the weather is clear (`weathersit=1`) vs rain or snow (`weathersit=4`)?**
+
+First we need to make sure that the weather situation is treated by R as a factor variable.  
+```{R}
+biketab$weathersit <- factor(biketab$weathersit)
+levels(biketab$weathersit)
+```
+
+Next, use GLM to regress the counts onto the weather situation.
+```{r}
+wsfit <- glm(cnt ~ weathersit, data=biketab)
+summary(wsfit)
+```
+We see that weather situation 1 is the reference level, with an expected ride count of 264 rides per hour.  Weather situation 4 has an expected *164 fewer rides per hour*.
+
+<br> 
+**What are the in-sample SSE, R2, and an estimate of the standard deviation of the residual errors for the ride-weather regression that you just ran?**
+
+From the `summary.glm` output, the SSE is 397756252, the R2 is 0.04:
+```{r}
+1- 397756252/414271583
+```
+And the residual error variance is 30365.39 (the "dispersion parameter") so the 
+standard error is around 174.
+```{r}
+sqrt(30365.39)
+```
+
+<br>
+**Plot the residual errors from your ride-weather regression.  Do they appear like they come from a Gaussian distribution? If not, what transformation should we consider using in our regression model?**
+
+```{r}
+hist(wsfit$residuals)
+```
+Nope, they do not look Gaussian.  We should consider a log transformation on the response.
+
+**We are now going to add more input variables and transform the response.  Fit a log-linear regression for the log hourly ride counts onto all of the weather variables (`weathersit`, `temp`,`hum`,`windspeed`).  You can ignore the date/time variables for now.  Recalling that the continuous variables are measured in terms of standard deviation above average, what is the increase in average ride counts due to a 1 SD increase in the temperature?**
+
+First, fit the model
+```{R}
+weatherfit <- glm(log(cnt) ~ weathersit + temp + hum + windspeed, data=biketab) 
+summary(weatherfit)
+```
+The coefficient on `temp` is 0.4119, and exponentiating gives you the multiplier on expected ride counts.
+```{r}
+exp(0.4119)
+```
+Ride counts increase by around 50% per every one standard deviation increase in the temperature.
+
+<br>
+**Interact the temperature with the `weathersit` variable.  What is the change in expeced ride count per 1SD increase in temperature when it is wet or snowy outside (`weathersit=4`).**
+
+```{r}
+weatherfit2 <- glm(log(cnt) ~ weathersit, data=biketab) 
+coef(weatherfit2)
+```
+
+The coefficient on temperature is 
+
+
+
+
+
+
+
+
+
+
+<br> <br>
