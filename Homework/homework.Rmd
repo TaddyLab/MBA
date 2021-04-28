@@ -99,7 +99,7 @@ Ride counts increase by around 50% per every one standard deviation increase in 
 **Interact the temperature with the `weathersit` variable.  What is the change in expeced ride count per 1SD increase in temperature when it is wet or snowy outside (`weathersit=4`).**
 
 ```{r}
-weatherfit2 <- glm(log(cnt) ~ weathersit, data=biketab) 
+weatherfit2 <- glm(log(cnt) ~ temp*hum*windspeed + weathersit, data=biketab)
 coef(weatherfit2)
 ```
 
