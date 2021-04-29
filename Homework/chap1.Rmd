@@ -1,0 +1,225 @@
+---
+title: "Chapter 1 Homework"
+output: html_notebook
+---
+
+
+### Bikeshare Data
+
+For this problem set, we will use 13103 observations of hourly counts from 2011 to 2012 for bike rides (rentals)
+from the Capital Bikeshare system in Washington DC. The data are recorded for hours after 6am every day (we omit earlier hours for convenience since they often include zero ride counts).  This dataset is adapted from data originally compiled by Fanaee and
+Gama in ‘Event labeling combining ensemble detectors and background knowledge’ (2013).  
+
+This data can be used for modeling system usage (ride counts).  Such usage modeling is a key input for operational planning.
+
+`bikeshare.csv` contains:  
+
+* `dteday`: date 
+* `mnth`: month (1 to 12)  
+* `holiday`: whether day is holiday or not  
+* `weekday`: day of the week, counting from 0:sunday.  
+* `workingday`: if day is either weekend or holiday is 0, otherwise is 1.  
+* `weathersit`:  broad overall weather summary (clear, cloudy, wet)
+* `temp`: Temperature, measured in Celsius
+* `hum`: Humidity %
+* `windspeed`: Wind speed, measured in km per hour
+* `cnt`: count of total bike rentals taht day
+
+<br>
+<br>
+
+**Read the `bikeshare.csv` data into R.  Plot the marginal distribution for the
+count of bike rentals and the conditional count distribution given the broad weather situation (`weathersit`).**
+
+
+```{R}
+biketab <- read.csv("bikeshare.csv")
+head(biketab)
+par(mfrow=c(1,2))
+hist(biketab$cnt, xlab="daily ride count", freq=FALSE, main="")
+boxplot(biketab$cnt ~ biketab$weathersit, xlab="weather situation", ylab="daily ride count")
+```
+
+<br>
+**Fit a regression for ride count as a function of the weather situation variable.   What is the difference in expected ride counts when the weather is clear vs wet?**
+
+First we need to make sure that the weather situation is treated by R as a factor variable.  With version 4, R defaults to reading strings as characters unless you specify `strings=TRUE` when reading in the data.
+```{R}
+class(biketab$weathersit)
+biketab$weathersit <- factor(biketab$weathersit)
+levels(biketab$weathersit)
+```
+
+Next, use GLM to regress the counts onto the weather situation.
+```{r}
+wsfit <- glm(cnt ~ weathersit, data=biketab)
+summary(wsfit)
+```
+We see that `weather situation "clear" is the reference level, with an expected ride count of 4877 rides per hour.  Wet days have an expected *3073.5 fewer rides per hour*.
+
+<br> 
+**What are the in-sample SSE, R2, and an estimate of the standard deviation of the residual errors for the ride-weather regression that you just ran?**
+
+From the `summary.glm` output, the SSE is 2739535392, the R2 is 0.1:
+```{r}
+1 - wsfit$deviance/wsfit$null.deviance
+```
+And the residual error variance is 3389960 (the "dispersion parameter") so the 
+standard error is around 1841.
+```{r}
+sqrt(wsfit$deviance/wsfit$df.residual)
+```
+
+
+**We are now going to add more input variables.  Fit a regression for the ride counts onto all of the weather variables (`weathersit`, `temp`,`hum`,`windspeed`).  You can ignore the date/time variables for now.  What is the impact on expected ride count due to a 10 degree increase in the temperature?**
+
+First, fit the model
+```{R}
+ridefit <- glm(cnt ~ weathersit + temp + hum + windspeed, data=biketab) 
+coef(ridefit)
+```
+The coefficient on `temp` is 155.97949, and so a 10 degree increase in temperature corresponds to around 1560 expected extra rides per day.
+
+
+<br>
+**Add interactions between the continuous weather variables and the `weathersit` factor.  For each weather situation, what is the change in expected ride count per 10 degree increase in temperature?**
+
+```{r}
+ridefit2 <- glm(cnt ~ weathersit*(temp + hum + windspeed), data=biketab) 
+coef(ridefit2)
+```
+
+The impact of a 10 degree increase for each weather situation is:
+```{r}
+## clear
+10*coef(ridefit2)["temp"]
+## cloudy
+10*(coef(ridefit2)["temp"] + coef(ridefit2)["weathersitcloudy:temp"])
+## wet
+10*(coef(ridefit2)["temp"] + coef(ridefit2)["weathersitwet:temp"])
+```
+
+<br>
+**Fit the same model (including interactions) but for predicting log ride counts.  Compare the results to your previous model fit for raw ride counts.  Why would you prefer one model over the other?**
+
+```{r}
+lridefit <- glm(log(cnt) ~ weathersit*(temp + hum + windspeed), data=biketab) 
+coef(lridefit)
+```
+
+Comparing the models, we can look at the new implied impacts for a 10 degree increase in temperature.  These are the *multiplicative* effects on expected ride count per 10 degree increase.
+```{r}
+## clear
+exp(10*coef(lridefit)["temp"])
+## cloudy
+exp(10*(coef(lridefit)["temp"] + coef(lridefit)["weathersitcloudy:temp"]))
+## wet
+exp(10*(coef(lridefit)["temp"] + coef(lridefit)["weathersitwet:temp"]))
+```
+
+The riderships now increase by 50% when clear, 72% when cloudy, and 42% when wet for a 10 degree temperature increase.  This compares to linear ridership increases of 1480 when clear, 1780 when cloudy, and 990 when wet under our regression for raw counts. 
+
+Thinking about which model is better, we note that the log model has the advantage that it will never predict ride counts less than zero (which can happen in the linear model).  We can also plot residuals from each model
+```{r}
+par(mfrow=c(1,2))
+plot(ridefit2$residuals ~ ridefit2$fitted.values, xlab="fitted", ylab="residual", main="linear regression")
+plot(lridefit$residuals ~ lridefit$fitted.values, xlab="fitted", ylab="residual", main="log linear regression")
+```
+Comparing residuals, the linear model appears to have less of an issue of non-constant variance whereas for the log model the errors on predicted high-use days tend to be larger than on low use days.  
+
+<br>
+**What is the predicted ride count on a clear 25 degree day with 50% humidity and 5kmh winds?  Compare the log-linear and linear predictions.**
+
+```{r}
+newdata <- data.frame(weathersit="clear", temp=25, hum=50, windspeed=5)
+predict(ridefit2, newdata)
+exp(predict(lridefit, newdata))
+```
+The linear model prediction is 5839 rides, the log-linear model prediction is 5624 rides.  Note that the log-linear prediction, obtained by exponentiating the predicted log ride count, is a *biased* estimate of the expected ride count.
+
+<br>
+**Suppose that you know the system starts to strain and require extra help (e.g., extra re-distribution of bikes throughout the day, helpers at the docking stations) when it gets really busy.  From experience you know that this happens when you have greater than 7000 rides per day.  Build a logistic regression model for the probability of having greater than 7000 rides per day.  What is the impact on the odds of passing this threshold when the temperature rises by 10 degrees?**
+
+You can run logistic regression on the logical statement `cnt>7000`.
+```{r}
+ride7k <- glm(cnt>7000 ~ weathersit*(temp + hum + windspeed),
+              data=biketab, family="binomial")
+coef(ride7k)
+```
+
+```{r}
+## clear
+exp(10*coef(ride7k)["temp"])
+## cloudy
+exp(10*(coef(ride7k)["temp"] + coef(ride7k)["weathersitcloudy:temp"]))
+## wet
+exp(10*(coef(ride7k)["temp"] + coef(ride7k)["weathersitwet:temp"]))
+```
+
+A 10 degree increased temperature raises the odds of >7k rides by 270% when clear, 660% when cloudy, and they do not change when wet.
+
+<br>
+**Return to linear modeling for raw ride counts. Build a model that incorporates all of the time variables as inputs and allows for a linear trend over time.  Plot the resulting fit.**
+
+First, we need to set the month and day indicators as factor variables, and create a time trend term.
+```{r}
+biketab$date <- as.Date(biketab$dteday, format="%m/%d/%Y")
+biketab$mnth <- factor(biketab$mnth)
+biketab$weekday <- factor(biketab$weekday)
+```
+
+```{r}
+timefit <- glm(cnt ~ weathersit*(temp + hum + windspeed) 
+                + date + mnth + weekday, data=biketab) 
+summary(timefit)
+```
+And plot the results
+```{r}
+plot(cnt ~ date, type="l", col=8, data=biketab)
+lines(timefit$fitted ~ biketab$date, col="red")
+```
+The model captures the broad trend, and is also able to fit some of the really low ride count spikes.  Notice that in the fitted time trend the rides are increasing by about 5 per day.  We can also look at the weekly and monthly trends. 
+```{r}
+par(mfrow=c(1,2))
+plot(2:12, coef(timefit)[paste("mnth",2:12,sep="")], type="l", ylab="change relative to JAN", xlab="month")
+plot(1:6, coef(timefit)[paste("weekday",1:6,sep="")], type="l", ylab="change relative to MON", xlab="weekday")
+
+```
+
+
+
+<br>
+**Investigate the autocorrelation in the residuals from your fitted model, and add an AR(1) term to the model.  What are the fitted properties of the time series of residuals?**
+
+Plotting the residuals over time shows potential correlation.
+```{r}
+plot(timefit$residuals ~ biketab$date, type="l")
+```
+We can use the ACF to make it more precise.
+```{r}
+acf(timefit$residuals)
+```
+The lag-1 correlation is around 0.5, so we have significant dependence in the residuals.  
+
+To add the AR(1) term, we first create the lagged cnt variable.  
+
+```{r}
+biketab$lag <- c(NA, head(biketab$cnt,-1))
+# confirm it worked as planned
+biketab[1:5,c("cnt","lag")]
+```
+Now, add it to the regression.
+```{r}
+arfit <- glm(cnt ~ lag + weathersit*(temp + hum + windspeed) 
+                + date + mnth + weekday, data=biketab)
+coef(arfit)["lag"]
+```
+
+The coefficient is between zero and one, so this is a stationary mean-reverting process of residual errors.  Plottting the ACF for this new model confirms that this AR(1) term accounts for most of the autocorrelation from our earlier fit.
+```{r}
+acf(arfit$residuals)
+```
+
+
+
+<br> <br>
