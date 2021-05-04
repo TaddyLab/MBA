@@ -1,0 +1,157 @@
+---
+title: "Chapter 3 Homework"
+output: html_notebook
+---
+
+
+### Web browsing data
+
+For this problem set, we will look at the web browser history for 10k users for 1000 heavily trafficed websites.  The data was obtained in the early 2000s.  Each browser in the sample spent at least $1 online in the same year.
+
+The data is stored in three files.  
+* `browser-domains.csv` contains the counts for visits from each user ID to each website ID.
+* `browser-sites.txt` contains the full names of the domains for each website ID.
+* `browser-totalspend.csv` contains the total amount spent online that year for each user ID. 
+
+Using the code below, you can read the data and convert it into a simple triplet matrix that contains a column for every website, a row for every user, and entries that are 1 if the user visted that website and 0 otherwise.  
+
+```{R}
+library(Matrix)
+
+## Browsing History. 
+## The table has three colums: [machine] id, site [id], [# of] visits
+web <- read.csv("browser-domains.csv")
+## Read in the actual website names and relabel site factor
+sitenames <- scan("browser-sites.txt", what="character")
+web$site <- factor(web$site, levels=1:length(sitenames), labels=sitenames)
+## also factor machine id
+web$id <- factor(web$id, levels=1:length(unique(web$id)))
+
+
+## use this info in a sparse matrix
+## this is something you'll be doing a lot; familiarize yourself.
+xweb <- sparseMatrix(
+	i=as.numeric(web$id), j=as.numeric(web$site), 
+# replace this with x=web$visits to have a matrix of counts instead of binary 0/1
+	x=rep(1,nrow(web)), 
+	dims=c(nlevels(web$id),nlevels(web$site)),
+	dimnames=list(id=levels(web$id), site=levels(web$site)))
+
+
+# what sites did household 1 visit?
+head(xweb[1, xweb[1,]!=0])
+
+## now read in the spending data 
+yspend <- read.csv("browser-totalspend.csv", row.names=1)  # us 1st column as row names
+yspend <- as.matrix(yspend) ## good practice to move from dataframe to matrix
+```
+
+We now have `yspend` as the user's total spending and `xweb` as the their browser history.  
+<br>
+<br>
+
+**Calculate the standard error and 95% Confidence Interval for the mean unconditional sales price.**
+
+
+
+
+<br>
+**Regress the `log(SalePrice)` onto all variables except for `Neighborhood`.  Which regression coefficients are significant when you control for a 5% false discovery rate.**
+
+First fit the regression.
+```{R}
+amesfit <- glm(log(SalePrice) ~ .-Neighborhood, data=ames)
+
+```
+
+We can extract the p values and plot them.
+```{r}
+pvals <- summary(amesfit)$coef[-1,"Pr(>|t|)"]
+length(pvals)
+
+par(mfrow=c(1,2))
+hist(pvals, col=8, breaks=10, xlab="p-values", main="", freq=FALSE)
+plot(sort(pvals), xlab="rank", ylab="p-values")
+
+```
+
+Finally, copy the FDR-cut function from the textbook and apply it to find the 7 significant coefficients at FDR=0.05.
+
+```{r}
+fdr_cut <- function(pvals, q){
+        pvals <- pvals[!is.na(pvals)]
+        N <- length(pvals)
+        k <- rank(pvals, ties.method="min")
+        max(pvals[ pvals<= (q*k/N) ])
+}
+cutoff5 <- fdr_cut(pvals,q=.05)
+print(cutoff5)
+which(pvals<=cutoff5)
+```
+
+
+<br> 
+**What is the 95% confidence interval for the effect of having Central Air on the expected log sale price?  Use both the statistics from the fitted glm and a bootstrap to calculate and compare.**
+
+First, from the glm object.
+```{r}
+( bstats <- summary(amesfit)$coef["Central.AirY",] )
+bstats["Estimate"] + c(-1,1)*1.96*bstats["Std. Error"]
+```
+
+Now, using the bootstrap.  We'll use the percentile bootstrap CI here without any bias correction.  Note the seed is set equal to one. 
+```{r}
+# write a function to extract coefficients from a bootstrap fit
+getBeta <- function(data, obs, var){
+    fit <- glm(log(SalePrice) ~ .-Neighborhood, data=data[obs,])
+    return(fit$coef[var])
+}
+
+library(parallel)
+library(boot)
+set.seed(1)
+( betaBoot <- boot(ames, getBeta, 2000, var="Central.AirY", 
+                 parallel="snow", ncpus=detectCores()) )
+
+quantile(betaBoot$t, c(.025, .975))
+```
+The bootstrap interval is much wider (due to a SE of 0.04 vs 0.02 for the standard method).
+
+**Obtain a 95% CI coefficient on Central Air while allowing for dependence in sales prices within neighborhoods.**
+
+We can do this with a block bootstrap.
+```{R}
+byNBHD <- split(ames, ames$Neighborhood)
+set.seed(1)
+getBetaBlock <- function(data, ids, var){
+    data <- do.call("rbind",data[ids])
+    fit <- glm(log(SalePrice) ~ .-Neighborhood, data=data)
+    return(fit$coef[var])
+}
+( betaBootB <- boot(byNBHD, getBetaBlock, 2000, var="Central.AirY",
+                          parallel="snow", ncpus=detectCores()) )
+
+# the confidence interval:
+quantile(betaBootB$t, c(.025, .975))
+
+```
+Or, you can use the sandwich package.
+```{r}
+library(sandwich)
+library(lmtest)
+Vblock <- vcovCL(amesfit, cluster=ames$Neighborhood)
+clstats <- coeftest(amesfit, vcov = Vblock)["Central.AirY",]
+round(clstats, 5)
+clstats["Estimate"] + c(-1,1)*1.96*clstats["Std. Error"]
+```
+The clustered standard error estimates from Sandwich are pretty close to the bootstrap results.
+
+<br>
+**Calculate a 95% CI for the multiplicative effect of central heating on the expected sale price.**
+
+This multiplicative effect is the exponentiated coefficient.  The exponentiation is a nonlinear transformation, and the distribution of this transformation will not be equal to the transformation of the raw coefficient distribution (i.e., exp(beta.hat) is a biased estimate for true exp(beta)).  So we should use the bias corrected bootstrap to obtain the 95% CI.
+```{r}
+quantile(2*exp(betaBootB$t0) - exp(betaBootB$t), c(.025, .975))
+```
+
+<br> <br>
