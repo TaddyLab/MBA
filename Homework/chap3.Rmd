@@ -3,17 +3,19 @@ title: "Chapter 3 Homework"
 output: html_notebook
 ---
 
-
 ### Web browsing data
 
 For this problem set, we will look at the web browser history for 10k users for 1000 heavily trafficed websites.  The data was obtained in the early 2000s.  Each browser in the sample spent at least $1 online in the same year.
 
-The data is stored in three files.  
+This is a simple version of the data that are used to build targeted advertising products that predict which customers are most likely to make purchases. 
+
+The data are stored in three files.  
 * `browser-domains.csv` contains the counts for visits from each user ID to each website ID.
 * `browser-sites.txt` contains the full names of the domains for each website ID.
 * `browser-totalspend.csv` contains the total amount spent online that year for each user ID. 
 
-Using the code below, you can read the data and convert it into a simple triplet matrix that contains a column for every website, a row for every user, and entries that are 1 if the user visted that website and 0 otherwise.  
+Using the code below, you can read the data and convert it into a simple triplet matrix that contains a column for every website, a row for every user, and entries that are 1 if the user visted that website and 0 otherwise. 
+
 
 ```{R}
 library(Matrix)
@@ -50,108 +52,94 @@ We now have `yspend` as the user's total spending and `xweb` as the their browse
 <br>
 <br>
 
-**Calculate the standard error and 95% Confidence Interval for the mean unconditional sales price.**
+**Fit a log-linear regression model for `yspend` using a sequence of lasso penalties and produce a path plot.  What is the first website to enter the model with a nonzero coefficient?**
 
+```{r}
+library(gamlr)
+spender <- gamlr(xweb, log(yspend))
+plot(spender) ## path plot
+```
+To get the nonzero coefficient, you can look at the first column of `beta`.  
 
-
+```{r}
+which(spender$beta[,2]!=0)
+```
+Bizrate was an online shopping deal comparison website popular in the early 2000s.  
 
 <br>
-**Regress the `log(SalePrice)` onto all variables except for `Neighborhood`.  Which regression coefficients are significant when you control for a 5% false discovery rate.**
+**Use the AIC to select the optimal lasso penalty.  What is the optimal lambda value and how many regression coefficients have nonzero estimates at this value?  Which 5 websites have the largest positive and negative effects on expected spending?**
 
-First fit the regression.
+First, `spender` has attribute `lambda` and we can use the `AICc` function to get the optimal value.
+```{r}
+names(spender)
+spender$lambda[which.min(AICc(spender))]
+```
+
+Since AICc selection is the default, we can just call `coef` to get the coefficients.  We do that here and remove the intercept.
 ```{R}
-amesfit <- glm(log(SalePrice) ~ .-Neighborhood, data=ames)
-
-```
-
-We can extract the p values and plot them.
-```{r}
-pvals <- summary(amesfit)$coef[-1,"Pr(>|t|)"]
-length(pvals)
-
-par(mfrow=c(1,2))
-hist(pvals, col=8, breaks=10, xlab="p-values", main="", freq=FALSE)
-plot(sort(pvals), xlab="rank", ylab="p-values")
-
-```
-
-Finally, copy the FDR-cut function from the textbook and apply it to find the 7 significant coefficients at FDR=0.05.
-
-```{r}
-fdr_cut <- function(pvals, q){
-        pvals <- pvals[!is.na(pvals)]
-        N <- length(pvals)
-        k <- rank(pvals, ties.method="min")
-        max(pvals[ pvals<= (q*k/N) ])
-}
-cutoff5 <- fdr_cut(pvals,q=.05)
-print(cutoff5)
-which(pvals<=cutoff5)
+beta <- coef(spender)[-1,]
+# number nonzero
+sum(beta!=0)
+# most negative and positive 
+sort(beta)[1:5]
+sort(beta, decreasing=TRUE)[1:5]
 ```
 
 
 <br> 
-**What is the 95% confidence interval for the effect of having Central Air on the expected log sale price?  Use both the statistics from the fitted glm and a bootstrap to calculate and compare.**
+**What is the predicted annual spending for someone whose browser history includes only google.com and fedex.com?**
 
-First, from the glm object.
+You can build an input vector and use the `predict` function, or simply pull out the relevant coefficients (and intercept)
 ```{r}
-( bstats <- summary(amesfit)$coef["Central.AirY",] )
-bstats["Estimate"] + c(-1,1)*1.96*bstats["Std. Error"]
+beta[c("fedex.com","google.com")]
+( logspend <- coef(spender)[1] + sum(beta[c("fedex.com","google.com")]) )
+exp(logspend)
 ```
 
-Now, using the bootstrap.  We'll use the percentile bootstrap CI here without any bias correction.  Note the seed is set equal to one. 
-```{r}
-# write a function to extract coefficients from a bootstrap fit
-getBeta <- function(data, obs, var){
-    fit <- glm(log(SalePrice) ~ .-Neighborhood, data=data[obs,])
-    return(fit$coef[var])
-}
+**Compare your AICc selected model fit to the results from AIC and BIC selection.**
 
-library(parallel)
-library(boot)
-set.seed(1)
-( betaBoot <- boot(ames, getBeta, 2000, var="Central.AirY", 
-                 parallel="snow", ncpus=detectCores()) )
-
-quantile(betaBoot$t, c(.025, .975))
-```
-The bootstrap interval is much wider (due to a SE of 0.04 vs 0.02 for the standard method).
-
-**Obtain a 95% CI coefficient on Central Air while allowing for dependence in sales prices within neighborhoods.**
-
-We can do this with a block bootstrap.
 ```{R}
-byNBHD <- split(ames, ames$Neighborhood)
-set.seed(1)
-getBetaBlock <- function(data, ids, var){
-    data <- do.call("rbind",data[ids])
-    fit <- glm(log(SalePrice) ~ .-Neighborhood, data=data)
-    return(fit$coef[var])
-}
-( betaBootB <- boot(byNBHD, getBetaBlock, 2000, var="Central.AirY",
-                          parallel="snow", ncpus=detectCores()) )
-
-# the confidence interval:
-quantile(betaBootB$t, c(.025, .975))
-
+ll <- log(spender$lambda) ## the sequence of lambdas
+plot(spender, col="gray")
+abline(v=ll[which.min(AICc(spender))], col="black", lty=2)
+abline(v=ll[which.min(AIC(spender))], col="orange", lty=2)
+abline(v=ll[which.min(BIC(spender))], col="green", lty=2)
+legend("topleft", bty="n",
+	fill=c("black","orange","green"),legend=c("AICc","AIC","BIC"))
 ```
-Or, you can use the sandwich package.
+AIC and AICc choose the same lambda value.  BIC chooses a larger lambda, leading to fewer nonzero coefficients (53 vs 229).
 ```{r}
-library(sandwich)
-library(lmtest)
-Vblock <- vcovCL(amesfit, cluster=ames$Neighborhood)
-clstats <- coeftest(amesfit, vcov = Vblock)["Central.AirY",]
-round(clstats, 5)
-clstats["Estimate"] + c(-1,1)*1.96*clstats["Std. Error"]
+bBIC <- coef(spender, select=which.min(BIC(spender)))[-1,] ## and BIC instead
+sum(bBIC!=0)
 ```
-The clustered standard error estimates from Sandwich are pretty close to the bootstrap results.
 
 <br>
-**Calculate a 95% CI for the multiplicative effect of central heating on the expected sale price.**
+**Run a CV experiment and use the CV-min rule to select the optimal lambda.  What is the out-of-sample R2 at your selected model, and how does it compare to the out-of-sample R2 for the AICc selected model?**
 
-This multiplicative effect is the exponentiated coefficient.  The exponentiation is a nonlinear transformation, and the distribution of this transformation will not be equal to the transformation of the raw coefficient distribution (i.e., exp(beta.hat) is a biased estimate for true exp(beta)).  So we should use the bias corrected bootstrap to obtain the 95% CI.
+First, just fit the `cv.gamlr` model.
 ```{r}
-quantile(2*exp(betaBootB$t0) - exp(betaBootB$t), c(.025, .975))
+cv.spender <- cv.gamlr(xweb, log(yspend), verb=TRUE)
+plot(cv.spender)
 ```
 
+Now look at the the selected lambda (from visual inspection it is similar to the lambda selected by AICc), and calculate the R2s.
+```{r}
+cv.spender$lambda.min
+## the R2 at CV-min
+1 - cv.spender$cvm[cv.spender$seg.min]/cv.spender$cvm[1]
+## the R2 at AICc selection
+1 - cv.spender$cvm[which.min(AICc(spender))]/cv.spender$cvm[1]
+```
+
+**Build a model for the probability that a user spends more than $1000 in a single year.  What is the increase on the odds of spending more than $1000 due to a user having fedex.com in their browser history?**
 <br> <br>
+
+You can use either CV or AICc selection.  Here we will use the AICc selection on a logistic regression lasso fit.
+```{r}
+bigspend <- gamlr(xweb, yspend>1000, famil="binomial")
+plot(bigspend)
+blogit <- coef(bigspend)[-1,]
+which.max(blogit)
+exp(blogit["fedex.com"])
+```
+The odds increas by around 28%.
