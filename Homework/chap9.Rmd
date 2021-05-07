@@ -1,0 +1,70 @@
+---
+title: "Chapter 9 Homework"
+output: html_notebook
+---
+
+### Congressional Text Data
+
+For this problem set, we will look at data from congressional speeches.  This data first appear in Gentzkow and Shapiro (2010) an summarize the first year of the 109th Congressional Record (2005) containing all speech in that year for members of the US house and senate.  
+
+The text is already tokenized into bigrams (two-word prhases) after stop-word removal and stemming (using a Porter stemmer).  The matrix congress109Counts contains the number of times each phrase in a list of 1000 common bigram and trigrams was used in the 109th Congress by each of the 529 members of the House and Senate.  
+
+
+```{R}
+library(textir)
+data(congress109)
+congress109Counts[c("Barack Obama", "John Boehner"), 995:998]
+```
+
+Notice that Stem Cell becomes `stem.cel`, for example, after stemming.  
+We now have `yspend` as the user's total spending and `xweb` as the their browser history.  
+
+The data also contain information about each member of Congress.
+```{r}
+congress109Ideology[1:4,]
+```
+We will be considering the variable `repshare` which is the proportion of the two party vote by the members constituents (districts for members of the house, state for senators) that was captured by the republican candidate (GW Bush) in the 2004 presidential election.
+<br>
+<br>
+
+**Fit a lasso regression that predicts `repshare` from whether or not each member used each text token.  What are the most republican and most democratic tokens?**
+
+```{r}
+x <- congress109Counts>0
+y <- congress109Ideology$repshare
+fitlin <- gamlr(x, y)
+plot(fitlin)
+
+# use the AICc coefficients
+b <- coef(fitlin)[-1,]
+# Democrat words (most negative loading to predict repshare)
+sort(b)[1:10]
+# Republican words
+sort(b, decreasing=TRUE)[1:10]
+```
+
+**Fit a 10 topic LDA model.  Can you identify any of the topics as being related to specific subjects or political beliefs?**
+
+```{r}
+library(text2vec)
+tpc <- LDA$new(n_topics=10)
+W <- tpc$fit_transform(x)
+```
+
+Looking at topic token probabilities we can see some broad themes (civil rights, environmentalism, job creation, spending).
+```{r}
+tpc$get_top_words(n=5, lambda=1)
+```
+
+The story out of topic token lifts is a bit different, and we see more specific issues referenced in the top of each topic.  
+```{r}
+tpc$get_top_words(n=5, lambda=0)
+```
+**Regress repshare onto the 10 topic LDA.  What does this tell you about the partisanship of these topics?**
+
+```{r}
+fitLDA <- glm(y ~ W) 
+summary(fitLDA)
+```
+One of the topic is dropped from the regression because it is redundant (they sum to one for each speaker).  We can see that some topics are republican (significantly positive) and others are democratic (significantly negative).
+<br> <br>

@@ -1,0 +1,94 @@
+---
+title: "Chapter 4 Homework"
+output: html_notebook
+---
+
+### Spam Filter
+
+We will start with the spam prediction example from Chapter 1, 
+where the content of emails is used to predict the probability that a
+message is spam.  Using the code below, first break the data into
+a training set of 4000 emails and a test set of 601 emails.
+
+```{r}
+spammy<- read.csv("Spam.csv")
+set.seed(1)
+testsamp <- sample.int(nrow(spammy), 601)
+xtrain <- spammy[-testsamp,-ncol(spammy)]
+xtest <- spammy[testsamp,-ncol(spammy)]
+ytrain <- spammy[-testsamp,"spam"]
+ytest <- spammy[testsamp,"spam"]
+dim(xtrain)
+dim(xtest)
+length(ytrain)
+length(ytest)
+```
+
+<br>
+<br>
+
+**Use K-NN with both K=5 and K=20 to classify the test emails and produce the out-of-sample confusion matrices.  What are your precision and recall in each case?**
+
+```{r}
+library(class)
+
+## first, k=5
+k5 <- knn(train=xtrain, test=xtest, cl=ytrain, k=5)
+k5cm <- table(pred=k5, actual=ytest)
+# precision
+k5cm[2,2]/sum(k5cm[2,])
+# recall
+k5cm[2,2]/sum(k5cm[,2])
+
+## now, k=20
+k20 <- knn(train=xtrain, test=xtest, cl=ytrain, k=20)
+k20cm <- table(pred=k20, actual=ytest)
+# precision
+k20cm[2,2]/sum(k20cm[2,])
+# recall
+k20cm[2,2]/sum(k20cm[,2])
+
+```
+
+**Using the training data, fit a lasso logistic regression model to predict whether an email is spam.  Using the AICc selected model, produce both the in-sample and out-of-sample confusion matrices for a classification cutoff of 1/2.  What are your precision and recall in each case?**
+
+First, the logistic regression with gamlr.  Note that you need to use a smaller-than-default lambda min ratio.
+
+```{R}
+spamfit <- gamlr(xtrain, ytrain, family="binomial", lmr=1e-4)
+plot(spamfit)
+```
+
+You can then pull out predicted probabilities and use the `table` command to calculate the confusion matrix.  First in-sample:
+```{r}
+ptrain <- drop( predict(spamfit, xtrain, type="response") )
+( ctrain <- table(pred=ptrain>0.5, ytrain) )
+# precision
+ctrain[2,2]/sum(ctrain[2,])
+# recall
+ctrain[2,2]/sum(ctrain[,2])
+```
+
+Then out-of-sample:
+```{r}
+ptest <- drop( predict(spamfit, xtest, type="response") )
+( ctest <- table(pred=ptest>0.5, ytest) )
+# precision
+ctest[2,2]/sum(ctest[2,])
+# recall
+ctest[2,2]/sum(ctest[,2])
+```
+<br>
+
+**It is much worse to miss an important email than it is to get the occasional spam in your inbox.  Say that you view the cost of missing an important email as 10 times the cost of seeing a spam message in your inbox, such that you want to classify an email as spam only if (1-p)x10 is less than p where p is the probability that it is spam.  What should the classification rule be for your spam filter?  What is the out-of-sample precision and recall under this classification rule?  How many important emails would you miss out of the 601?**
+
+You will classify an email as spam if (1-p)x10 < p, or if p>10/11.
+```{r}
+( cfilter <- table(pred=ptest>10/11, ytest) )
+# precision
+cfilter[2,2]/sum(cfilter[2,])
+# recall
+cfilter[2,2]/sum(cfilter[,2])
+```
+You would only miss one important email.
+<br> <br>

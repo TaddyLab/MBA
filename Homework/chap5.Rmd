@@ -1,0 +1,109 @@
+---
+title: "Chapter 5 Homework"
+output: html_notebook
+---
+
+### Malaria medication adherence
+
+In `malaria.csv` we have the results from an experiment that provided text alerts to encourage adherence to antimalarial medication (taking the meds) in Ghana.  The data are taken from the paper at https://doi.org/10.7910/DVN/M4LY6C (*Raifman, Julia RG, et al. "The impact of text message reminders on adherence to antimalarial treatment in northern Ghana: a randomized trial." PloS one 9.10 (2014)*). 
+
+The `treated` variable is whether or not they get the text alerts, the `adhere` variable is whether they (mostly) adhered to the medication protocol, and the `age` and `male` variables tell us the patient's age and whether they are male. 
+
+<br>
+<br>
+
+**Calculate a 95% interval for the average treatment effect of text reminders on adherence probability.**
+
+```{r}
+d <- read.csv("malaria.csv")
+fit1 <- glm( adhere ~ treated, data=d)
+( stats1 <- summary(fit1)$coef["treated",] )
+# confidence interval
+stats1[1] + c(-1,1)*1.96*stats1[2]
+```
+
+The interval barely overlaps with zero, so this is close but not quite significant at the 0.05 level.
+
+Alternatively, you can bootstrap.
+```{r}
+library(parallel)
+library(boot)
+getATE <- function(data, ind){
+  coef(glm(adhere ~ treated, data=data[ind,]))["treated"]
+}
+set.seed(1)
+(boot1 <- boot(d, getATE, 1000, 
+               parallel="snow", ncpus=detectCores()))
+## percentile bootstrap
+quantile(boot1$t, c(.025,.975))
+## bias adjusted
+quantile(2*boot1$t0 -boot1$t, c(0.025,.975))
+```
+Similar results here to the theoretical CI derived from the glm output.
+
+**Do you have any evidence that the treatment selection is driven by the patient's age or sex?**
+
+This is asking if the age and `male` covariates are predictive of treatment status.  Running the regression below indicates that they are not.  
+
+```{R}
+summary(glm(treated ~ age*male, data=d))
+```
+
+<br>
+
+**Break the age into ten year chunks (1-10, 11-20, etc) and estimate a heterogeneous treatment effects model where the treatment effect depends upon age category and sex.  What is the 95% CI for the CATE for a 25 year old female?**
+
+First, use `cut` to break the age into chunks.
+```{r}
+max(d$age)
+d$agegrp <- cut(d$age,10*(0:9))
+levels(d$agegrp)
+```
+Then, run a regression model.  You could use linear or logistic regression; we will use logistic regression since the response is binary.
+```{r}
+fit2 <- glm(adhere ~ treated*agegrp*male, data=d)
+
+getCATE <- function(data, ind){
+  fit <- glm(adhere ~ treated*agegrp*male, data=data[ind,])
+  predict(fit, data.frame(treated=1, male=0, agegrp="(20,30]")) - 
+    predict(fit, data.frame(treated=0, male=0, agegrp="(20,30]"))
+  }
+set.seed(1)
+(boot2 <- boot(d, getCATE, 1000, 
+               parallel="snow", ncpus=detectCores()))
+## percentile bootstrap
+quantile(boot2$t, c(.025,.975))
+## bias adjusted
+quantile(2*boot2$t0 -boot2$t, c(0.025,.975))
+```
+
+Note that the warning is because we include factor levels that are not identified.  You can ignore it.
+
+<br>
+**Simulate data from a regression discontinuity design and recover an estimate of your treatment effect.**
+
+Our simulator has two linear models.  The treatment effect at r=0 is 3-1=2 (difference in intercepts)
+```{r}
+fcntrl <- function(r){ 1 +10*r + rnorm(length(r), sd=5) }
+ftreat <- function(r){ 3 +5*r + rnorm(length(r), sd=5)}
+```
+
+Simulate 100 observations centered on r=0, and fit a linear model on either side.
+```{r}
+r <- runif(100, -3, 3)
+treat <- as.numeric(r>0)
+y <- fcntrl(r)*(1-treat) + ftreat(r)*treat
+plot(r, y, col=1+(r>0))
+
+rdfit <- glm( y ~ r*treat)
+points(r, rdfit$fitted, pch=20, col=1+treat)
+```
+
+The CATE at r=0 is
+```{r}
+summary(rdfit)
+```
+
+The true value of 2 should be within 2 standard errors of the true value, 19 times out of 20 when you run this simulator code. 
+
+<br> <br>

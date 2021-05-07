@@ -1,0 +1,74 @@
+---
+title: "Chapter 7 Homework"
+output: html_notebook
+---
+
+### Telemarketing Data
+
+We will consider the telemarketing data from chapter 3, where the goal is to predict the probability that a call results in a subscription (`subscribe=1`) for a term deposit product from the bank.
+
+<br>
+<br>
+
+**Fit a CART tree to predict whether or not a call results in a subscrpition.  Plot the resulting tree as a dendrogram.  What does it look like is the most important variable?  **
+
+```{r}
+tlmrk <- read.csv("telemarketing.csv", strings=T)
+library(tree)
+treeTD <- tree( subscribe==1 ~ ., data=tlmrk, )
+plot(treeTD)
+text(treeTD)
+```
+The earliest, and most, splits are on `durmin` the length of the call.
+
+<br>
+**Sample a random test sample of 1000 observations.  Fit a random forest to predict the subscription probability, using only the training sample.  What is the most important variable? Compare predictive performance on the test sample to the lasso regression from Chapter 3.**
+
+First, split the data into test and train.
+```{r}
+set.seed(1)
+testi <- sample.int(nrow(tlmrk),1000)
+test <- tlmrk[testi,]
+train <- tlmrk[-testi,]
+dim(test)
+dim(train)
+```
+
+Fit the model using ranger.
+```{r}
+library(ranger)
+rfTD <- ranger(subscribe ~ ., data=tlmrk, 
+               prob=TRUE, num.tree=200, importance="impurity")
+sort(rfTD$variable.importance, decreasing=TRUE)
+```
+
+Durmin is the most important variable.  
+
+Now, fit the lasso logistic regression from Chapter 3.
+```{r}
+library(gamlr)
+tlmrkX <- naref(tlmrk[,-15])
+## sparse model matrix
+xTD <- sparse.model.matrix(~.^2 + I(durmin^2), data=tlmrkX)
+## fit the lasso path
+fitTD <- gamlr(xTD[-testi,], tlmrk$subscribe[-testi], family="binomial")
+plot(fitTD)
+```
+Compare the out of sample prediction results.  You can compare on deviance or misclassification rates.
+```{r}
+plasso <- predict(fitTD, xTD[testi,], type="response")
+# random forest predictions are the second column (it produces a matrix)
+prf <- predict(rfTD, test)$predictions[,2]
+
+# deviance
+#lasso
+-2*mean( log(plin)*test$subscribe + log(1-plin)*(1-test$subscribe) )
+#rf
+-2*mean( log(prf)*test$subscribe + log(1-prf)*(1-test$subscribe) )
+
+# misclassification rate 
+mean(  (plin<=0.5)*test$subscribe + (plin>0.5)*(1-test$subscribe) )
+mean(  (prf<=0.5)*test$subscribe + (prf>0.5)*(1-test$subscribe) )
+```
+In both cases, OOS 'errors' for the RF are about 1/2 those from the lasso logistic regression.
+<br> <br>

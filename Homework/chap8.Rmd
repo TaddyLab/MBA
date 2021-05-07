@@ -1,0 +1,96 @@
+---
+title: "Chapter 8 Homework"
+output: html_notebook
+---
+
+### Web browsing data
+
+For this problem set, we will (again) look at the web browser history for 10k users for 1000 heavily trafficed websites.  The data was obtained in the early 2000s.  Each browser in the sample spent at least $1 online in the same year.
+
+This is a simple version of the data that are used to build targeted advertising products that predict which customers are most likely to make purchases. 
+
+The data are stored in three files.  
+* `browser-domains.csv` contains the counts for visits from each user ID to each website ID.
+* `browser-sites.txt` contains the full names of the domains for each website ID.
+* `browser-totalspend.csv` contains the total amount spent online that year for each user ID. 
+
+Using the code below, you can read the data and convert it into a simple triplet matrix that contains a column for every website, a row for every user, and entries that are 1 if the user visted that website and 0 otherwise. Here, we will convert this into a dense matrix as required for `prcomp`.  Note that you could also use `eigen` to calculate the principal components yourself if you wanted to keep the original sparse matrix format.
+
+
+```{R}
+library(Matrix)
+
+## Browsing History. 
+## The table has three colums: [machine] id, site [id], [# of] visits
+web <- read.csv("browser-domains.csv")
+## Read in the actual website names and relabel site factor
+sitenames <- scan("browser-sites.txt", what="character")
+web$site <- factor(web$site, levels=1:length(sitenames), labels=sitenames)
+## also factor machine id
+web$id <- factor(web$id, levels=1:length(unique(web$id)))
+
+
+## use this info in a sparse matrix
+## this is something you'll be doing a lot; familiarize yourself.
+xweb <- sparseMatrix(
+	i=as.numeric(web$id), j=as.numeric(web$site), 
+# replace this with x=web$visits to have a matrix of counts instead of binary 0/1
+	x=rep(1,nrow(web)), 
+	dims=c(nlevels(web$id),nlevels(web$site)),
+	dimnames=list(id=levels(web$id), site=levels(web$site)))
+
+
+# what sites did household 1 visit?
+head(xweb[1, xweb[1,]!=0])
+
+## now read in the spending data 
+yspend <- read.csv("browser-totalspend.csv", row.names=1)  # us 1st column as row names
+yspend <- as.matrix(yspend) ## good practice to move from dataframe to matrix
+
+# finally, convert to dense
+x <- as.matrix(xweb)
+```
+
+<br>
+<br>
+
+**Fit PCA on `xweb`.  Produce the screeplot showing the variation in the first few PCs. **
+
+```{r}
+pca <- prcomp(x, scale=TRUE)
+sort(pca$rotation[,1])[1:10]
+sort(pca$rotation[,1], decreasing=TRUE)[1:10]
+sort(pca$rotation[,2])[1:10]
+sort(pca$rotation[,2], decreasing=TRUE)[1:10]
+```
+From the largest and smallest loadings in the first two factors, it is not easy to see how to interpret these.  Looking at the summary, 
+
+```{r}
+plot(pca)
+```
+The drop off in variation after the first PC is large. 
+
+<br>
+**Sample a random test sample of 1000 observations.  Compare out-of-sample predicted log spending on this test sample using the lasso model of the problem set for Chapter 3 and a GLM onto the first 10 PCs.**
+
+First, split the data into test and train.
+```{r}
+set.seed(1)
+testi <- sample.int(nrow(x),1000)
+V <- as.data.frame(predict(pca)[,1:10])
+fitPC <- glm(log(yspend)[-testi] ~ ., data= V[-testi,])
+summary(fitPC)
+
+## OOS MSE for PCR
+yhatPC <- predict(fitPC, V[testi,])
+mean( (log(yspend)[testi]-yhatPC)^2 )
+
+## OOS MSE for Lasso
+library(gamlr)
+spender <- gamlr(xweb[-testi,], log(yspend)[-testi])
+yhatLasso <- predict(spender, xweb[testi,])
+mean( (log(yspend)[testi]-yhatLasso)^2 )
+
+```
+
+<br> <br>

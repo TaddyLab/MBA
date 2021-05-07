@@ -1,0 +1,67 @@
+---
+title: "Chapter 6 Homework"
+output: html_notebook
+---
+
+### Gender effect on wages
+
+In the `hdm` package there is the `cps2012` data (also used in chapter 7) on wages.  We will fit models here to understand the effect of gender on wage after controlling for the other census variables (which include educational status, geography, and transformations of years of potential experience).
+
+Use the following code to create your outcome variable (`lnw`, the log hourly wage), treatment (`female`), and matrix of control variables (`xbig`).
+
+```{r}
+library(hdm)
+data(cps2012)
+
+library(gamlr)
+
+xcps <- sparse.model.matrix(~(.-weight)^2-1, data=cps2012[,-(1:3)])
+female <- cps2012$female
+lnw <- cps2012$lnw
+dim(xcps)
+```
+
+<br>
+<br>
+
+**Calculate the effect of `female` on `lnw` without conditioning on any controls.  What is the 95% interval for multiplicative effect of gender on wage?  **
+
+First, fit the model:
+```{r}
+summary(glm(lnw~female))
+```
+
+To get the multiplicative effect, you need to exponentiate the regression coefficient.  We can use the bootstrap to calculate the 95% CI for this effect.
+```{r}
+library(parallel)
+library(boot)
+getATE <- function(data, ind){
+  exp(coef(glm(lnw ~ female, data=data[ind,]))["female"])
+}
+set.seed(1)
+(boot1 <- boot(data.frame(lnw=lnw, female=female), getATE, 1000, 
+               parallel="snow", ncpus=detectCores()))
+## percentile bootstrap
+quantile(boot1$t, c(.025,.975))
+## bias adjusted  (better in this case, because exp(beta.hat) is biased)
+quantile(2*boot1$t0 -boot1$t, c(0.025,.975))
+```
+
+<br>
+
+**Use double ML to recover the additive effect of gender on log hourly wage after conditioning on the variables in `xbig`.  What is the standard error on this additive effect?  What is a 95% CI for the multiplicative effect of gender on hourly wage?**
+
+The first part here is as simple as running double ML using `gamlr`.
+```{R}
+dml <- doubleML(xcps, d=female, y=lnw)
+summary(dml)
+```
+
+For the second part, there are a couple of different ways to get the CI.  Simplest is to simulate from the sampling distribution implied by double ML.  You could also run double ML inside a bootstrap loop which will take much much longer.  
+
+Doing it the easy way:
+```{r}
+stats <- summary(dml)$coef[1,]
+tesamp <- exp(rnorm(1000, mean=stats[1], sd=stats[2]))
+quantile(tesamp, c(0.025,.975))
+```
