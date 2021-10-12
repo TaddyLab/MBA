@@ -60,7 +60,7 @@ length(r2OOSSLR[r2OOSSLR<0])
 
 
 # Semiconductor example
-SC <- read.csv("semiconductor.csv")
+SC <- read.csv("semiconductor.csv", strings=T)
 full <- glm(FAIL ~ ., data=SC, family=binomial)
 1 - full$deviance/full$null.deviance
 
