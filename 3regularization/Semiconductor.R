@@ -1,5 +1,4 @@
 ###### REGULARIZATION #######
-
 # First example to show over and under-fit and OOS performance
 set.seed(865) # this allows you to get the same "random" data
 x<-seq(-3,6,0.5) # define x's
