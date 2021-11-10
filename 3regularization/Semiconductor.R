@@ -1,7 +1,7 @@
 ###### REGULARIZATION #######
 ###### Semiconductor example #######
 
-SC <- read.csv("semiconductor.csv", strings=T)
+SC <- read.csv("semiconductor.csv")
 full <- glm(fail ~ ., data=SC, family="binomial")
 
 full$deviance
