@@ -17,10 +17,12 @@ lines(x,fitted(fitQ),lwd=2) #add fitted model
 plot(x,data,ylab="y",pch=21,col="darkgreen",bg="darkgreen",bty="n")
 lines(x,fitted(fit18),lwd=2)
 
+
 1-fitL$deviance/fitL$null.deviance  #R2 linear
 1-fitQ$deviance/fitQ$null.deviance  #R2 quadratic
 1-fit18$deviance/fit18$null.deviance  #R2 poly 18
 
+# the code below simulates new data for an OOS experiment
 r2OOSSLR<-c(); r2OOSQuad<-c(); r2OOSPoly<-c()
 for (i in 1:10000){
 	dataNew<-(1.5 + (x-1)^2) + rnorm(length(x),0,2.5)

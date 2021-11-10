@@ -1,18 +1,21 @@
-## bank telekmarketing
+###### REGULARIZATION #######
+###### bank telemarketing #######
+
 tlmrk <- read.csv("telemarketing.csv", strings=T)
 dim(tlmrk)
 tlmrk[1,]
 
-## log sale price response 
+## pull out log sale price response 
 yTD <- tlmrk$subscribe
 mean(yTD)
 
 ## the gamlr library: we will be heavy users
 ## syntax is the same as glmnet 
 ## it includes a number of useful functions for this book
-sum(is.na(tlmrk))
+sum(is.na(tlmrk)) # no NAs 
 library(gamlr)
-tlmrkX <- naref(tlmrk[,-15])
+# even though we don't have NAs, run naref to make <NA. ref level
+tlmrkX <- naref(tlmrk[,-15]) # removed column 15 (the response)
 levels(tlmrkX$job)
 
 ## sparse model matrix
@@ -21,15 +24,17 @@ dim(xTD)
 
 ## fit the lasso path
 fitTD <- gamlr(xTD, yTD, family="binomial")
-#png('tlmrkPath.png', width=4.5, height=4.5, units="in", res=720)
 plot(fitTD)
-#dev.off()
+
 
 ## coefficients
 fitTD$beta[c("durmin","I(durmin^2)"),c(1:2,99:100)]
 
 ## IC selection
+AIC(fitTD)
 which.min(AIC(fitTD))
+sum(fitTD$beta[,92]!=0)
+fitTD$lambda[92]
 fitTD$lambda[which.min(AIC(fitTD))]
 
 bTD <- coef(fitTD)[-1,] ## the coefficients selected under AICc
@@ -43,9 +48,9 @@ boxplot(predict(fitTD,xTD,type="response") ~ yTD, ylab="y.hat", col="khaki")
 #dev.off()
 
 # other IC selections
-bTDbic <- coef(fitTD, select=which.min(BIC(fitTD)))[-1,] 
+bTDbic <- coef(fitTD, select=which.min(BIC(fitTD)))[-1,] ## BIC
 sum(bTDbic!=0)
-bTDaic <- coef(fitTD, select=which.min(AIC(fitTD)))[-1,] 
+bTDaic <- coef(fitTD, select=which.min(AIC(fitTD)))[-1,] ## AIC
 sum(bTDaic!=0)
 
 # Cross-Validation
@@ -53,26 +58,20 @@ library(parallel)
 cl <- makeCluster(detectCores())
 set.seed(0)
 cvfitTD <- cv.gamlr(xTD, yTD, family="binomial", cl=cl)
-beta1se <- coef(cvfitTD, select="1se")[-1,] 
-sum(beta1se!=0)
-betamin <- coef(cvfitTD, select="min")[-1,] 
-sum(betamin!=0)
 
+
+betamin <- coef(cvfitTD, select="min")[-1,] # cv min rule returns 88 coefficients
+sum(betamin!=0)
+beta1se <- coef(cvfitTD, select="1se")[-1,] # cv 1se rule returns 18 coefficients
+sum(beta1se!=0)
+
+# make predictions
 yTD[c(1,100)]
 drop(predict(cvfitTD, xTD[c(1,100),], select="min", type="response"))
 drop(predict(cvfitTD, xTD[c(1,100),], select="1se", type="response"))
 
 ## plot the CV path
-#png('tlmrkCV.png', width=4.5, height=4.5, units="in", res=720)
 plot(cvfitTD)
-#dev.off()
-
-## log lambdas selected under various criteria
-log(fitTD$lambda[which.min(AICc(fitTD))])
-log(fitTD$lambda[which.min(AIC(fitTD))])
-log(fitTD$lambda[which.min(BIC(fitTD))])
-log(cvfitTD$lambda.min)
-log(cvfitTD$lambda.1se)
 
 ## plot CV results and the various IC
 ll <- log(fitTD$lambda) ## the sequence of lambdas
@@ -91,7 +90,6 @@ legend("topleft", bty="n",
 #dev.off()
 
 ## all metrics, together in a path plot.
-#png('tlmrkICCV.png', width=4.5, height=4.5, units="in", res=720)
 plot(fitTD, col="grey", select=FALSE)
 abline(v=ll[which.min(AICc(fitTD))], col="black", lty=2, lwd=2)
 abline(v=ll[which.min(AIC(fitTD))], col="orange", lty=2, lwd=2)
@@ -101,11 +99,9 @@ abline(v=log(cvfitTD$lambda.1se), col="red", lty=2, lwd=2)
 legend("bottomright", bty="n", lwd=2, 
 	col=c("black","orange","blue","green","red"),
 	legend=c("AICc","AIC","CV.min","BIC","CV.1se"))
-#dev.off()
+
 
 ### uncertainty quantification
-# full sample estimat
-
 ## simulation function
 p0 <- drop( predict(fitTD ,xTD, type="response", select=100) )
 getBoot <- function(b){
@@ -121,9 +117,7 @@ cl <- makeCluster(detectCores())
 clusterExport(cl, c("gamlr", "xTD", "p0"))
 betaB <- parSapply(cl, 1:100, getBoot)
 
-png('tlmrkBoot.png', width=4.5, height=4.5, units="in", res=720)
 plot(t(betaB), pch=20, bty="n")
-dev.off()
 
 
 grid <- seq(0,max(tlmrk$durmin),length=200)
