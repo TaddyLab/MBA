@@ -1,3 +1,6 @@
+####### Classification #######
+####### Biopsy Data #######
+
 # KNN
 library(MASS)
 data(biopsy)
@@ -15,6 +18,8 @@ boxplot(biopsy[,i]~biopsy[,11],ylab="",main=main,col=c("blue","deeppink1"),
 biopsyNM<-na.omit(biopsy) #remove rows with missing data
 x <- scale(biopsyNM[,2:10]) # scale data
 apply(x,2,sd)
+class(biopsy)
+class(x)
 y <- biopsyNM$class
 table(y)
 
