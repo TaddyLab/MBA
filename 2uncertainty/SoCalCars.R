@@ -73,6 +73,18 @@ summary( glm(price ~ certified, data=Cars) )
 # ~95% confidence interval for CPO premium 
 14331 + c(-2,2)*1363.6
 
+### prediction
+# conditional expectation CI
+certreg <- glm(price ~ certified, data=Cars)
+( certpred <- predict(certreg, data.frame(certified=1), se.fit=TRUE) )
+certpred$fit + c(-2,2)*certpred$se.fit
+
+# prediction interval
+predvar <- certpred$se.fit^2 + certpred$residual.scale^2
+sqrt(predvar)
+certpred$fit + c(-2,2)*sqrt(predvar)
+
+### carsreg
 # larger car regression model.  First we relevel the reference levels
 Cars$make <- relevel(Cars$make, "Ford")
 Cars$body <- relevel(Cars$body, "Sedan")
@@ -132,18 +144,6 @@ abline(a=0, b=0.1/length(pvals), lwd=1.5)
 nullpval <- runif(length(pvals))
 plot(sort(nullpval))
 
-### prediction
-
-# conditional expectation CI
-Cars[c(1000),c("make","model","year","mileage")]
-(caravan <- predict(carsreg, Cars[c(1000),], se.fit=TRUE))
-caravan$fit + c(-2,2)*caravan$se.fit
-exp(caravan$fit + c(-2,2)*caravan$se.fit)
-# prediction interval
-predvar <- caravan$se.fit^2 + caravan$residual.scale^2
-sqrt(predvar)
-caravan$fit + c(-2,2)*sqrt(predvar)
-exp(caravan$fit+ c(-2,2)*sqrt(predvar))
 
 ### bootstrapping
 
