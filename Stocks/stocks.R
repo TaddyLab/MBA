@@ -45,16 +45,23 @@ bigs <- read.csv("bigstocks.csv", header=FALSE,as.is=TRUE)
 exr <- (as.matrix(RET[,bigs[,1]]) - tbills[,2])
 mkt <- (SNP[,2] - tbills[,2])
 
+# dealing with facebook, otherwise it skips pre-IPO years for all stocks
+exr[is.na(exr)] <- 0
+
 capm <- lm( exr ~ mkt)
 (ab <- t(coef(capm))[,2:1])
 
-ab <- ab[-9,]
+# redo the regression for FB (limiting to post IPO dates)
+fbm <- lm( exr[,"FB"] ~ mkt, subset=-(1:28) )
+ab["FB",] <- coef(fbm)[2:1]
 
-par(mai=c(.8,.8,0,0), xpd=FALSE)
+pdf(file="capm.pdf", width=7, height=4)
+par(mai=c(.8,.8,0,0.1), xpd=FALSE)
 plot(ab, type="n", bty="n", xlab="beta", ylab="alpha")
 abline(v=1, lty=2, col=8)
 abline(h=0, lty=2, col=8)
 text(ab, labels=rownames(ab), cex=bigs[,2]/350, col="navy") 
+dev.off()
 
 ## write the returns
 aRet <- RET
