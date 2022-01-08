@@ -1,5 +1,10 @@
+######################################
+#### Factors
+######################################
+
 ### *** European Protein Consumption, in grams/person-day *** ###
 food <- read.csv("protein.csv", row.names=1) # 1st column is country name
+head(food,4)
 
 # fit the factors
 pcfood <- prcomp(food, scale=TRUE)
@@ -28,6 +33,7 @@ plot(wfood[,3:4], type="n", xlim=c(-3,3),bty="n")
 text(x=wfood[,3], y=wfood[,4], labels=rownames(food), col=grpProtein$cluster)
 #dev.off()
 
+summary(pcfood)
 ## Scree plot
 #png('proteinScree.png', width=5, height=5, units="in", res=720)
 plot(pcfood, main="European Protein PCA")

@@ -1,4 +1,4 @@
-####### Experiments #######
+####### Causal Inference - Experiments #######
 ####### RD #######
 
 dat <- read.csv("RD.csv")

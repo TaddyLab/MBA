@@ -1,4 +1,6 @@
+###### REGULARIZATION #######
 ## the introductory overfit example
+
 set.seed(865) # this allows you to get the same "random" data
 x<-seq(-3,6,0.5) # define x's
 data<-(1.5 + (x-1)^2) + rnorm(length(x),0,2.5) #a quadratic function with random noise added

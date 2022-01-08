@@ -1,3 +1,8 @@
+######################################
+#### Factors
+######################################
+
+################## Uber
 # Clustering examples
 
 ## code to produce the bivariate normal plot
@@ -11,17 +16,18 @@ for(i in 1:length(x1)){
 	for(j in 1:length(x1)){
 		f[i,j]<-dmvnorm(cbind(x1[i],x2[j]), mean=mu,sigma=sigma)
 }}
-png('bivariateNorm.png', width=6, height=5, units="in", res=720)
+#png('bivariateNorm.png', width=6, height=5, units="in", res=720)
 persp(x1, x2, f,col="green",xlab="x1",ylab="x2",zlab="density", theta=-30)
-dev.off()
+#dev.off()
 
 ### UBER: K-means
 uber <- read.csv("uber.csv")
 head(uber)
+dim(uber)
 
 ## run K-means
 hubs <- kmeans(uber[,2:3], centers=10, nstart=3)
-hubs$centers
+hubs$centers #take a look at the lat and lon for our 10 "hubs"
 
 ## plot the centers (hubs)
 library(maps)
@@ -31,6 +37,7 @@ map('county', c('new york','new jersey'), col="grey60",
 	xlim=c(-74.4,-73.1), ylim=c(40.4,41))
 points(hubs$centers, pch=21, bg=2)
 #dev.off()
+################################################
 
 # choosing k
 kSeq<-seq(5,50,by=5)

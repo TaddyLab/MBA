@@ -1,3 +1,7 @@
+######################################
+#### Text as Data
+######################################
+
 ### *** LastFM play counts *** ###
 
 lastFM<-read.csv("lastfm.csv",colClasses="factor")
@@ -12,6 +16,7 @@ fmX <-  sparseMatrix(
       dims=c(nlevels(lastFM$user),nlevels(lastFM$artist)),
       dimnames=list(levels(lastFM$user),levels(lastFM$artist)))
 dim(fmX)
+fmX[1:2,2:5]
 fmX[1, fmX[1,]!=0]
 
 # run the topic model

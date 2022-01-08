@@ -1,4 +1,4 @@
-####### CHAPTER 1 - Regression #######
+####### Regression #######
 ## Hass avocado panel example
 
 hass <- read.csv("hass.csv",stringsAsFactors=TRUE)

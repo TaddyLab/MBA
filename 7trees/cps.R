@@ -1,3 +1,9 @@
+######################################
+#### Trees and Forests
+######################################
+
+################## CPS Census Income Data
+
 library(hdm)
 # Current Population Survey in 2012
 # similar data used in mulligan+rubinstein (QJE: 2008)
@@ -59,6 +65,7 @@ wagetreecut <- prune.tree(wagetree, best=5)
 plot(wagetreecut, col="grey50")
 text(wagetreecut)
 #dev.off()
+#######################################
 
 ## random forest and variable importance
 library(ranger)
@@ -96,4 +103,5 @@ glm(ytil ~ dtil-1)
 
 # HTE  
 pefac <- cut(cps$pexp, c(0,10,30,Inf),right=FALSE)
-coef(glm(ytil ~ dtil*pefac - pefac - dtil, data=cps))
+head(pefac)
+coef(glm(ytil ~ dtil*pefac - pefac - dtil - 1, data=cps))

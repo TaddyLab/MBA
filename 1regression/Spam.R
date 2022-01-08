@@ -1,4 +1,4 @@
-####### CHAPTER 1 - Regression #######
+####### Regression #######
 ###### Logistic Regression
 
 ### Spam Logistic Regression

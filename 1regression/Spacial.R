@@ -1,4 +1,4 @@
-####### CHAPTER 1 - Regression #######
+####### Regression #######
 ###### Gaussian Process Modeling
 
 # California census data

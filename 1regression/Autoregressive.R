@@ -1,4 +1,4 @@
-####### CHAPTER 3 - Space and Time #######
+####### Regression #######
 
 ###airline passenger data
 
