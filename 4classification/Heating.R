@@ -14,7 +14,8 @@
 
 library(mlogit)
 data(Heating)
-head(Heating)
+dim(Heating)
+head(Heating, 5)
 
 # create model matrix and pull out response
 xH <- model.matrix( depvar ~ ., data=Heating[,-1])[,-1]
@@ -26,8 +27,8 @@ library(glmnet)
 netfit <- glmnet(xH, yH, family="multinomial")
 
 # some predictions at lambda100
-L100 <- min(netfit$lambda) 
-pnet <- drop( predict(netfit, xH, s=L100, type="response") )
+LMIN <- min(netfit$lambda) 
+pnet <- drop( predict(netfit, xH, s=LMIN, type="response") )
 newi <- c(1,14,21,4,24)
 pnet[newi,]
 yH[newi]
@@ -35,7 +36,7 @@ yH[newi]
 head( levels(yH)[apply(pnet,1,which.max)] )
 
 hpHat <- pnet[,"hp"]> 0.1
-table(trueHP=yH=="hp", predHP=hpHat==1)
+table(predHP=hpHat==1, trueHP=yH=="hp")
 8/(8+56) # precision
 
 # png('glmnetMNFit.png', width=6, height=4, units="in", res=720)

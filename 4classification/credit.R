@@ -1,7 +1,7 @@
 ####### Classification #######
 #### ******* German Credit Data ******* ####
 
-credit <- read.csv("https://raw.githubusercontent.com/TaddyLab/MBA/main/4classification/credit.csv", strings=T)
+credit <- read.csv("credit.csv",strings=T)
 credit[1,]
 dim(credit)
 

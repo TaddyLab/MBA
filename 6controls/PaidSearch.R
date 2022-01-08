@@ -1,3 +1,7 @@
+######################################
+#### Causal Inference - Controls
+######################################
+
 ################## paidsearch
 
 ps <- read.csv("paidsearch.csv") 
@@ -14,6 +18,8 @@ head(ebay)
 ## run the DiD analysis
 did <- glm(log(revenue) ~ ssm.turns.off*post.treat, data=ebay)
 coef(did)
+
+1 - exp(-0.0057755)
 
 library(sandwich)
 library(lmtest)
@@ -55,9 +61,6 @@ abline(v=as.Date("2012-05-22"), lty=2,lwd=2)
 
 ### synthetic controls analysis
 ## a bunch of wrangling to get the data in the right format
-ps <- read.csv("paidsearch.csv") 
-
-library(tidyr)
 ebayD <- ps[,-(3:4)] %>% spread(dma,revenue)
 ebayD$date <- as.Date(ebayD$date, format="%d-%b-%y")
 ebayD <- ebayD[order(ebayD$date),]
@@ -105,7 +108,6 @@ legend("topright", bty="n", legend=c("observed","synthetic"),
 	lwd=2, col=c(col=c("black","orange")) )
 
 dev.off()
-
 library(parallel)
 cl <- makeCluster(detectCores())
 clusterExport(cl, c("ebayD", "gamlr", "synthc"))

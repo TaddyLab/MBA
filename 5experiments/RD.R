@@ -1,5 +1,8 @@
+####### Experiments #######
+####### RD #######
 
 dat <- read.csv("RD.csv")
+head(dat)
 
 par(mai=c(.8,.8,.3,.3))
 boxplot(score ~ treat, data=dat, horizontal=TRUE, 
@@ -7,43 +10,26 @@ boxplot(score ~ treat, data=dat, horizontal=TRUE,
  	ylab="treatment (Ad in Main)")
 abline(v=0, col=8, lty=3)
 
-h <- 3
-window <- which(dat$score > -h & dat$score < h)
+delta <- 3
+window <- which(dat$score > -delta & dat$score < delta)
 summary(linfit <- glm(y ~ treat*score, data=dat, subset=window))
 
-# difference in means
-summary( meandiff <- glm( y ~ treat, data=dat, subset=window) )
-
-# a neighborhood
-w <- 3
-above <- which(dat$score > 0 & dat$score <w)
-below <- which(dat$score < 0 & dat$score >-w)
-fita <- loess(y ~ score, data=dat[above,], degree=1)
-fitb <- loess(y ~ score, data=dat[below,], degree=1)
-rr <- seq(0.001,w-0.001,length=100)
-preda <- predict(fita,rr) 
-predb <- predict(fitb,-rr)
-
-nr <- 10
-rgrid <- seq(0, h, length=nr)
-dgrid <- data.frame(score=c(-rev(rgrid),rgrid), 
-					treat=rep(c(0,1),each=nr))
-linpred <- predict(linfit, newdata=dgrid)
-
-## alternatively, HC standard errors.
 library(sandwich)
 library(lmtest)
 coeftest(linfit, vcov=vcovHC(linfit))
 
+# difference in means
+summary( meandiff <- glm( y ~ treat, data=dat, subset=window) )
 
-png('RDanalysisData.png', width=4, height=4, units="in", res=720)
+## plots
+#png('RDanalysisData.png', width=4, height=4, units="in", res=720)
 plot(y ~ score, data=dat, subset=sample(c(above,below),10000), 
 		cex=.3, col=8, bty="n", xlab="r", main="")
-dev.off()
+#dev.off()
 
 mub <- coef(meandiff)[1]
 mua <- coef(meandiff)[1] + coef(meandiff)[2]
-png('RDanalysisZoomed.png', width=4, height=4, units="in", res=720)
+#png('RDanalysisZoomed.png', width=4, height=4, units="in", res=720)
 plot(rr, preda, xlab="r", col="grey50", ylab="y",lwd=2, 
 	main="",
 	ylim=range(c(preda,predb)), xlim=c(-w,w), type="l", bty="n")
@@ -55,7 +41,7 @@ lines(dgrid$score[nr+1:nr], linpred[nr+1:nr], lwd=1.5, col=4)
 lines(dgrid$score[1:nr], rep(mub,nr), lwd=1.5, lty=2, col=2)
 lines(dgrid$score[nr+1:nr], rep(mua,nr), lwd=1.5, lty=2, col=2)
 lines(c(0,0),coef(linfit)[1] + c(0,coef(linfit)[2]), lwd=1.5, col=4, lty=3)
-dev.off()
+#dev.off()
 
 
 hh <- seq(.1,5,length=50)

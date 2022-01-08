@@ -1,3 +1,9 @@
+######################################
+#### Causal Inference - Controls
+######################################
+
+####### # pension
+
 library(hdm)
 data(pension)
 pension[1,]
@@ -8,9 +14,11 @@ x = pension[, c("i1","i2", "i3", "i4", "i5", "i6", "i7","inc",
 	"hs", "smcol", "col", "marr", "twoearn","db","pira","hown")]
 x[,"inc"] <- x[,"inc"]/1e4
 
+## OLS
 ols <- glm(y ~ d + .-1, data=x[,1:7])
 summary(ols)
 
+## lasso
 library(gamlr)
 xbig <- sparse.model.matrix( ~ .^3 -1, data=x)
 dim(xbig)
@@ -30,29 +38,25 @@ ytil <- y-yhat
 
 glm(ytil ~ dtil -1)
 
-
-library(sandwich)
-library(coeftest)
-
-png('pensionTreatLasso.png', width=4, height=5, units="in", res=720)
+#png('pensionTreatLasso.png', width=4, height=5, units="in", res=720)
 plot(dfit)
-dev.off()
+#dev.off()
 
-png('pensionBoxplot.png', width=4, height=5, units="in", res=720)
+#png('pensionBoxplot.png', width=4, height=5, units="in", res=720)
 boxplot(dhat ~ d, col="purple", bty="n")
-dev.off()
+#dev.off()
 
-png('pensionResponseLasso.png', width=4, height=5, units="in", res=720)
+#png('pensionResponseLasso.png', width=4, height=5, units="in", res=720)
 plot(yfit)
-dev.off()
+#dev.off()
 
-png('pensionYscatter.png', width=4, height=5, units="in", res=720)
+#png('pensionYscatter.png', width=4, height=5, units="in", res=720)
 plot(yhat ~ y, col=rgb(1,.5,0,.25), bty="n", pch=20)
-dev.off()
+#dev.off()
 
-png('pensionResids.png', width=4, height=5, units="in", res=720)
+#png('pensionResids.png', width=4, height=5, units="in", res=720)
 plot(ytil ~ dtil, col=rgb(1,0,1,.25), bty="n", pch=20)
-dev.off()
+#dev.off()
 
 # orthogonal ML
 set.seed(1)
@@ -62,6 +66,8 @@ summary(dml)
 library(sandwich)
 library(lmtest)
 coeftest(dml, vcov=vcovHC(dml, "HC0"))
+
+9808 + c(-2,2)*2316
 
 #naive lasso
 naivefit <- gamlr(cbind(d,xbig), y, lmr=1e-3, free=1)
