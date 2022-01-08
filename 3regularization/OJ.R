@@ -11,7 +11,6 @@ library(gamlr)
 ojdf <-naref(oj)
 ojdf[c(100,200,300),"brand"]
 
-# applying naref to frame before creating model matrix
 # every factor level will have its own column
 # [,-1] gets rid of intercept
 modMatAllLevs<-model.matrix(~log(price)+brand,data=ojdf)[,-1]

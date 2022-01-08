@@ -4,11 +4,17 @@
 SC <- read.csv("semiconductor.csv")
 full <- glm(fail ~ ., data=SC, family="binomial")
 
+
+## use IS deviances to calculate R-squared
 full$deviance
 full$null.deviance
 1 - full$deviance/full$null.deviance
 
-pvals <- summary(full)$coef[-1,4] # -1 drops intercept
+## extract the 200 p-values
+pvals <- summary(full)$coef[-1,4] # -1 drops intercept 
+
+
+## BH algorithm for FDR of 10%
 pvals <- sort(pvals[!is.na(pvals)])
 J <- length(pvals)
 k <- rank(pvals, ties.method="min")
@@ -16,12 +22,13 @@ q=0.1
 ( alpha <- max(pvals[ pvals<= (q*k/(J+1)) ]) )
 sum(pvals<=alpha)
 
+## run smaller model using the 25 significant signals
 signif <- which(pvals < 0.0122)
 cut <- glm(fail ~ ., data=SC[,c("fail", names(signif))],
     family="binomial")
 1 - cut$deviance/cut$null.deviance # new in-sample R2
 
-# histogram of p-values and BH algorithm figure
+## histogram of p-values and BH algorithm figure
 par(mfrow=c(1,2))
 hist(pvals, xlab="P-value", main="", col="blue")
 fdr_cut <- function(pvals, q=0.1){
@@ -39,47 +46,57 @@ fdr_cut <- function(pvals, q=0.1){
   return(alpha)
 }
 
-fdr_cut(pVals)
+fdr_cut(pvals)
 
-## OOS experiment for full and cut models
-# create folds
-n <- nrow(SC) # the number of observations
-K <- 10 # the number of 'folds'
-# create a vector of fold memberships (random order)
-set.seed(1) # set seed to get same "random" results
-foldid <- rep(1:K,each=ceiling(n/K))[sample(1:n)]
-foldid[1:20]
+## OOS experiment
+## create folds
+n <- nrow(SC) # the number of observations 
+K <- 10 # the number of 'folds' 
+# create a vector of fold memberships (random order) 
+set.seed(1) # set seed to get exact same "random" results
+foldid <- rep(1:K,each=ceiling(n/K))[sample(1:n)] 
+foldid[1:20] 
 
-## run the OOS experiment
-fulldev <- cutdev <- nulldev <- rep(NA,K)
-for(k in 1:K){
-    train <- which(foldid!=k) # train on all but fold 'k'
-    # fit the two regressions
-    cuts <- c("fail",names(signif))
-    rfull <- glm(fail~., data=SC, subset=train, family="binomial")
-    rcut <- glm(fail~., data=SC[,cuts], subset=train, family="binomial")
-    # predict (type=response for probabilities)
-    pfull <- predict(rfull, newdata=SC[-train,], type="response")
-    pcut <- predict(rcut, newdata=SC[-train,], type="response")
-    # calculate OOS deviances
-    y <- SC$fail[-train]
-    ybar <- mean(y)
-    fulldev[k] <- -2*sum(y*log(pfull)+(1-y)*log(1-pfull))
-    cutdev[k] <- -2*sum(y*log(pcut)+(1-y)*log(1-pcut))
-    nulldev[k] <- -2*sum(y*log(ybar)+(1-y)*log(1-ybar))
-    # print progress
-    cat(k, "")
-  }      
+## run OOS experiment for full and cut models and calculate deviances
+fulldev <- cutdev <- nulldev <- rep(NA,K) 
+for(k in 1:K){ 
+train <- which(foldid!=k) # train on all but fold 'k' 
+	## fit the two regressions 
+	cuts <- c("fail",names(signif)) 
+	rfull <- glm(fail~., data=SC, subset=train, 
+	family="binomial") 
+	rcut <- glm(fail~., data=SC[,cuts], subset=train, 
+	family="binomial") 
 
-round(fulldev)
-round(cutdev)
-R2 <- data.frame(full = 1 - fulldev/nulldev, cut = 1 - cutdev/nulldev )
-colMeans(R2)   
+	## predict (type=response for probabilities) 
+	pfull <- predict(rfull, newdata=SC[-train,], 
+	type="response") 
+	pcut <- predict(rcut, newdata=SC[-train,], 
+	type="response")
+ 
+	## calculate OOS deviances 
+	y <- SC$fail[-train] 
+	ybar <- mean(y) 
+	fulldev[k] <- -2*sum(y*log(pfull)+(1-y)*log(1-pfull)) 
+	cutdev[k] <- -2*sum(y*log(pcut)+(1-y)*log(1-pcut)) 
+	nulldev[k] <- -2*sum(y*log(ybar)+(1-y)*log(1-ybar)) 
+
+	## print progress 
+	cat(k, "") 
+} 
+
+## cut model has lower (better) OOS deviance than full
+round(fulldev) 
+round(cutdev) 
+R2 <- data.frame( 
+	full = 1 - fulldev/nulldev, 
+	cut = 1 - cutdev/nulldev ) 
+colMeans(R2) 
 
 ## Forward stepwise regression
 null <- glm(fail~1, data=SC)
 system.time(fwd <- step(null, scope=formula(full), dir="forward") )
-length(coef(fwd)) # chooses around 70 coef
+length(coef(fwd)) # chooses 69 coef
 
 ## Path estimation in gamlr
 # Semiconductor Lasso

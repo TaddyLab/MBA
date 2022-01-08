@@ -1,14 +1,16 @@
+####### CHAPTER 1 - Regression #######
+###### Logistic Regression
 
 ### Spam Logistic Regression
 
 # plot the sigmoidal curve
-png("sigmoidalCurve.png", width=4, height=4, units="in", res=720)
+#png("sigmoidalCurve.png", width=4, height=4, units="in", res=720)
 z <- seq(-6,6,length=100)
 plot(z, exp(z)/(1+exp(z)), col="navy", type="l", lwd=1.5, bty="n", yaxt="n")
 axis(2, at=c(0,0.5,1), las=1)
 abline(h=0, lty=3, col="grey40")
 abline(h=1, lty=3, col="grey40")
-dev.off()
+#dev.off()
 
 spammy<- read.csv("Spam.csv")
 spammy[c(1,4000), c(16,56,58)]
@@ -28,21 +30,21 @@ predict(spamFit, newdata=spammy[c(1,4000),]) #not probabilities
 predict(spamFit,newdata=spammy[c(1,4000),],type="response") #probabilities
 
 # fit plot
-png("spamFit.png", width=5, height=3, units="in", res=720)
+#png("spamFit.png", width=5, height=3, units="in", res=720)
 par(mai=c(.5,.8,.2,.4))
 plot(spamFit$fitted~factor(spammy$spam, levels=0:1, labels=c("true important", "true spam")),
 	xlab="", ylab=c("fitted probability of spam"), col=c("blue","red"), bty="n")
-dev.off()
+#dev.off()
 
 predict(spamFit,newdata=spammy[c(1,4000),],type="response") #probabilities
 
 ### likelihood and deviance
 p <- seq(0,1,length=100)
-png("coinLHD.png", width=4, height=4, units="in", res=720)
+#png("coinLHD.png", width=4, height=4, units="in", res=720)
 plot(p, dbinom(8, size=10, prob=p), type="l", ylab="likelihood", bty="n", lwd=1.5)
 abline(v=0.8, col="grey40", lty=3)
-dev.off()
-png("coinDEV.png", width=4, height=4, units="in", res=720)
+#dev.off()
+#png("coinDEV.png", width=4, height=4, units="in", res=720)
 plot(p, -16*log(p) - 4*log(1-p), type="l", ylab="deviance", bty="n", lwd=1.5)
 abline(v=0.8, col="grey40", lty=3)
-dev.off()
+#dev.off()

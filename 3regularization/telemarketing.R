@@ -14,7 +14,7 @@ mean(yTD)
 ## it includes a number of useful functions for this book
 sum(is.na(tlmrk)) # no NAs 
 library(gamlr)
-# even though we don't have NAs, run naref to make <NA. ref level
+# even though we don't have NAs, run naref to make NA ref level
 tlmrkX <- naref(tlmrk[,-15]) # removed column 15 (the response)
 levels(tlmrkX$job)
 
@@ -25,6 +25,10 @@ dim(xTD)
 ## fit the lasso path
 fitTD <- gamlr(xTD, yTD, family="binomial")
 plot(fitTD)
+#png('tlmrkFitted.png', width=5, height=5, units="in", res=720)
+boxplot(predict(fitTD,xTD,type="response") ~ yTD, ylab="y.hat", col="khaki")
+#dev.off()
+
 
 
 ## coefficients
@@ -35,17 +39,13 @@ AIC(fitTD)
 which.min(AIC(fitTD))
 sum(fitTD$beta[,92]!=0)
 fitTD$lambda[92]
-fitTD$lambda[which.min(AIC(fitTD))]
+fitTD$lambda[which.min(AIC(fitTD))] 
 
 bTD <- coef(fitTD)[-1,] ## the coefficients selected under AICc
 sum(bTD!=0)
 bTD[c("durmin","I(durmin^2)")]
 head(sort(bTD),2) ## big decreasers
 tail(sort(bTD),2) ## big increasers
-
-#png('tlmrkFitted.png', width=5, height=5, units="in", res=720)
-boxplot(predict(fitTD,xTD,type="response") ~ yTD, ylab="y.hat", col="khaki")
-#dev.off()
 
 # other IC selections
 bTDbic <- coef(fitTD, select=which.min(BIC(fitTD)))[-1,] ## BIC
@@ -109,7 +109,9 @@ getBoot <- function(b){
 	fitTDb <- gamlr(xTD, yb, family="binomial")
 	coef(fitTDb)[c("durmin","I(durmin^2)"),]
 }
+
 getBoot(1)
+bTD[c("durmin","I(durmin^2)")]
 
 ## run the bootstrap
 library(parallel)
@@ -122,8 +124,8 @@ plot(t(betaB), pch=20, bty="n")
 
 grid <- seq(0,max(tlmrk$durmin),length=200)
 dmy <- apply(betaB, 2, function(b){ b[1]*grid+b[2]*grid^2 } )
-png('tlmrkBootCurve.png', width=4.5, height=4.5, units="in", res=720)
+#png('tlmrkBootCurve.png', width=4.5, height=4.5, units="in", res=720)
 matplot(grid, dmy, col=8, type="l", bty="n", 
  xlab="call duration in minutes", ylab="log multiplier on odds of success")
 lines(grid, bTD["durmin"]*grid+bTD["I(durmin^2)"]*grid^2, col="navy", lwd=1.5)
-dev.off()
+#dev.off()

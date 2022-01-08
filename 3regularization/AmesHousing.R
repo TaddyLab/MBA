@@ -8,6 +8,7 @@ dim(ames)
 ames[1:3,c(1:5,79)]
 
 # plots
+par(mfrow = c(1,2))
 hist(ames$SalePrice, xlab="home sale price", freq=FALSE, col="khaki", main="")
 plot(ames$Lot.Area, ames$SalePrice, log=("xy"), bty="n",
      xlab="Lot Area (SF)", ylab="Home Sale Price", col=rgb(1,.2,.2,.2), pch=20)
@@ -24,6 +25,7 @@ ames$Lot.Area <- log(ames$Lot.Area)
 ## it includes a number of useful functions for this book
 
 ####### Missing data stuff
+## there are a lot of NAs!
 sum(is.na(ames))
 summary(ames$Pool.QC)
 ames$Lot.Frontage[11:15]
@@ -32,6 +34,8 @@ ames$Lot.Frontage[11:15]
 library(gamlr)
 amesImputed <- naref(ames, impute=TRUE)
 sum(is.na(amesImputed))
+
+# explore results of imputation
 summary(amesImputed$Pool.QC)
 ames$Lot.Frontage[11:15]
 amesImputed$Lot.Frontage.x[11:15]
@@ -68,9 +72,7 @@ fitAmes$beta[
 
 # IC model selection
 bAmes <- coef(fitAmes) ## the coefficients selected under AICc
-head(bAmes)
-## a few examples
-bAmes <- bAmes[-1,] # drop intercept and remove sparse matrix formatting
+bAmes <- bAmes[-1,]
 sum(bAmes!=0)
 head(sort(bAmes),3) ## big decreaser
 tail(sort(bAmes),3) ## big increaser
@@ -90,6 +92,8 @@ exp(drop(yhat)) # exponentiate to get predicted prices
 (bicsel <- which.min(BIC(fitAmes)))
 bAmesBIC <- coef(fitAmes, select=bicsel)[-1,] ## and BIC
 sum(bAmesBIC!=0)
+
+(aicsel <- which.min(AIC(fitAmes)))
 
 ### cross validation
 set.seed(0)
